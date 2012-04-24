@@ -36,7 +36,7 @@ Format stringToFormat(const string & format) {
         return FORMAT_FIT;
     } else if (format == "gnuplot") {
         return FORMAT_GNUPLOT;
-    } else if (format == "text") {
+    } else if (format == "txt") {
         return FORMAT_TEXT;
     } else {
         return FORMAT_UNKNOWN;
@@ -45,8 +45,8 @@ Format stringToFormat(const string & format) {
 
 void usage() {
     cerr << "Usage: track -f <input-file> " << endl
-         << "             -i <input-format> (gpx, kml, fit -- optional)" << endl
-         << "             -o <output-format> (gpx, kml, gnuplot, text)" << endl
+         << "             -i <input-format> (gpx, kml, fit, txt -- optional)" << endl
+         << "             -o <output-format> (gpx, kml, gnuplot, txt)" << endl
          << "             -c (calculate climbs)" << endl
          << "             -p (calculate peaks)" << endl
          << "             -d (calculate most difficult KM)" << endl
@@ -55,7 +55,7 @@ void usage() {
          << "             -v (verbose; default)" << endl
          << endl
          << "The -i parameter is optional if the filename ends with" << endl
-         << ".gpx, .kml or .fit" << endl;
+         << "one of: .gpx, .kml, .fit or .txt" << endl;
 }
 
 // Command-line options
