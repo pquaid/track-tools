@@ -1,0 +1,27 @@
+#if !defined GPX_H
+#define      GPX_H
+
+#include <string>
+#include <iosfwd>
+
+#include "exception.h"
+
+class Track;
+
+// Methods for reading and writing GPX files
+class GPX {
+ public:
+    static void getPoints(std::istream & in, Track & out);
+    static void getPoints(const std::string & filename,
+                          Track & out);
+
+    static void write(std::ostream & out, Track & track);
+};
+
+class GPXError : public Exception {
+public:
+   GPXError(const std::string & msg)
+       : Exception("Error parsing GPX: " + msg) {}
+};
+
+#endif
