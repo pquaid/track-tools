@@ -75,14 +75,14 @@ static void processDoc(Document & doc, Track & track) {
     }
 }
 
-void KML::getPoints(const string & filename, Track & track) {
+void KML::read(const string & filename, Track & track) {
 
     Document doc;
     doc.read(filename);
     processDoc(doc, track);
 }
 
-void KML::getPoints(istream & in, Track & track) {
+void KML::read(istream & in, Track & track) {
 
     Document doc;
     doc.read(in);

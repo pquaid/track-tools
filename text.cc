@@ -3,12 +3,20 @@
 #include <iostream>
 #include <sstream>
 
+#include <ctype.h>
+
 #include "track.h"
 #include "exception.h"
 
 using namespace std;
 
-void Text::getPoints(istream & in, Track & track) {
+static string trim(string s) {
+    while (!s.empty() && isspace(s[0])) s.erase(0,1);
+    while (!s.empty() && isspace(s[s.size()-1])) s.resize(s.size()-1);
+    return s;
+}
+
+void Text::read(istream & in, Track & track) {
 
     while (in.good()) {
 
@@ -21,11 +29,19 @@ void Text::getPoints(istream & in, Track & track) {
         if (line[0] != '@') {
 
             string::size_type s = line.find('=');
-            if (s == string::npos) {
+            if ((s == string::npos) || (s == 0) || (s == (line.size()-1))) {
                 throw Exception("Bad line in text file: '" + line + "'");
             }
 
-            // parse the attribute, assign it
+            string key = trim(line.substr(0,s));
+            string value = trim(line.substr(s+1));
+
+            if (key == "name") {
+                track.setName(value);
+            } else {
+                throw Exception("Unknown attribute: '" + key + "'");
+            }
+
             continue;
         }
 

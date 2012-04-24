@@ -6,6 +6,7 @@
 #include "util.h"
 #include "gnuplot.h"
 #include "gpx.h"
+#include "text.h"
 
 #include <sys/time.h>
 #include <string.h>
@@ -236,8 +237,6 @@ static void processCommandLine(int argc, char * argv[]) {
                                 optarg + "'");
             } else if (inputFormat == FORMAT_GNUPLOT) {
                 throw Exception("Can't read gnuplot scripts");
-            } else if (inputFormat == FORMAT_TEXT) {
-                throw Exception("Can't read text format");
             }
             
             break;
@@ -309,6 +308,8 @@ int main(int argc, char * argv[]) {
                 inputFormat = FORMAT_FIT;
             } else if (Util::endsWith(inputFilename, ".kml")) {
                 inputFormat = FORMAT_KML;
+            } else if (Util::endsWith(inputFilename, ".txt")) {
+                inputFormat = FORMAT_TEXT;
             }
         }
 
@@ -337,11 +338,13 @@ int main(int argc, char * argv[]) {
             POSTCONDITION(in != 0);
 
             if (inputFormat == FORMAT_GPX) {
-                GPX::getPoints(*in, track);
+                GPX::read(*in, track);
             } else if (inputFormat == FORMAT_FIT) {
-                Fit::getPoints(*in, track);
+                Fit::read(*in, track);
             } else if (inputFormat == FORMAT_KML) {
-                KML::getPoints(*in, track);
+                KML::read(*in, track);
+            } else if (inputFormat == FORMAT_TEXT) {
+                Text::read(*in, track);
             }
         }
 
@@ -372,12 +375,7 @@ int main(int argc, char * argv[]) {
         } else if (outputFormat == FORMAT_GPX) {
             GPX::write(cout, track);
         } else if (outputFormat == FORMAT_TEXT) {
-
-            cout << track.getName() << endl;
-            for (int i = 0; i < track.size(); i++) {
-                cout << track[i] << endl;
-            }
-
+            Text::write(cout, track);
         } else {
             cerr << "Nothing to write" << endl;
         }

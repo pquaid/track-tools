@@ -1,6 +1,6 @@
 
 LIBSRC := point.cc track.cc gpx.cc document.cc fit.cc \
-	  dir.cc kml.cc gnuplot.cc util.cc
+	  dir.cc kml.cc gnuplot.cc util.cc text.cc
 LIBOBJ := $(LIBSRC:.cc=.o)
 
 TSTSRC := trackmain.cc

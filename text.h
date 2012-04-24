@@ -16,7 +16,7 @@ class Track;
 class Text {
 public:
 
-    static void getPoints(std::istream & in, Track & track);
+    static void read(std::istream & in, Track & track);
     static void write(std::ostream & out, Track & track);
 };
 

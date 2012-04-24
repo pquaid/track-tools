@@ -13,8 +13,8 @@
 // Methods for reading and writing KML files
 class KML {
 public:
-    static void getPoints(std::istream & in, Track & out);
-    static void getPoints(const std::string & filename, Track & out);
+    static void read(std::istream & in, Track & out);
+    static void read(const std::string & filename, Track & out);
 
     static void write(std::ostream & out, Track & track);
 };

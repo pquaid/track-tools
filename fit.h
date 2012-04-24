@@ -11,7 +11,7 @@ class Track;
 class Fit {
 public:
     // Read a FIT-formatted activity file into the track
-    static void getPoints(std::istream & in, Track & points);
+    static void read(std::istream & in, Track & points);
 };
 
 class FitException : public Exception {

@@ -75,7 +75,7 @@ private:
     vector<Point> & points;
 };
 
-void Fit::getPoints(istream & in, Track & points) {
+void Fit::read(istream & in, Track & points) {
 
     fit::MesgBroadcaster messages;
     Listener listener(points);

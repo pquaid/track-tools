@@ -122,14 +122,14 @@ static void processDoc(Document & doc, Track & points) {
     }
 }
 
-void GPX::getPoints(const string & filename, Track & points) {
+void GPX::read(const string & filename, Track & points) {
 
     Document doc;
     doc.read(filename);
     processDoc(doc, points);
 }
 
-void GPX::getPoints(istream & in, Track & points) {
+void GPX::read(istream & in, Track & points) {
 
     Document doc;
     doc.read(in);
