@@ -92,6 +92,25 @@ void Track::decayElevation(int samples) {
     }
 }
 
+static bool matchesPattern(Track & track, int pos) {
+
+    // The pattern is: three points increasing or decreasing.
+
+    if (pos < 2) return false;
+
+    if ((track[pos-2].elevation < track[pos-1].elevation) &&
+        (track[pos-1].elevation < track[pos].elevation)) {
+        return true;
+    }
+
+    if ((track[pos-2].elevation > track[pos-1].elevation) &&
+        (track[pos-1].elevation > track[pos].elevation)) {
+        return true;
+    }
+
+    return false;
+}
+
 // Calculate the average grade over segments of the given length. Since
 // GPS can be noisy, calculating the grade over longer segments (100
 // meters, for example) gives more realistic results.
@@ -101,18 +120,24 @@ void Track::calculateSegmentGrade(double segmentLength) {
     double segmentStartElevation = 0;
     double segmentStartDistance = 0;
 
+    double windowStart = segmentLength * 0.9;
+    double windowEnd   = segmentLength * 1.1;
+
     for (int i = 0; i < size(); i++) {
 
         if (i == 0) {
+
             segmentStartElevation = at(i).elevation;
             segmentStartDistance  = 0;
+
         } else {
 
-            if ((at(i).length - segmentStartDistance) >= segmentLength) {
+            double deltaD = at(i).length - segmentStartDistance;
+            if ((deltaD >= windowEnd) ||
+                ((deltaD >= windowStart) && matchesPattern(*this, i))) {
 
                 // Calculate the grade
                 double deltaE = at(i).elevation - segmentStartElevation;
-                double deltaD = at(i).length - segmentStartDistance;
                 double grade = (deltaE / deltaD) * 100;
 
                 // Fill in the points in this active segment

@@ -102,6 +102,17 @@ class Track : public std::vector<Point> {
     void calculatePeaks(double minRange, double minProminence);
 
     // Identify distinct climbs, with the given inscrutable criteria.
+    // minimumGrade: anything below this isn't a climb at all
+    // gradeRatio: don't combine climbs if the resulting grade is less
+    // than this, times the candidate grade. The idea is to avoid watering
+    // down steep climbs with lesser beginnings or endings.
+    //
+    // A climb must satisfy at least *one* of the 'significant'
+    // values -- length, grade or climb.
+    //
+    // minimumLength: anything shorter than this isn't a climb
+    // twixtRatio: two climbs may be combined if the distance between is
+    // less than this, times the length of the candidate
     void calculateClimbs(double minimumGrade,
                          double gradeRatio,
                          double significantLength,
