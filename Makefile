@@ -1,9 +1,9 @@
 
 LIBSRC := point.cc track.cc gpx.cc document.cc fit.cc \
-	  dir.cc kml.cc gnuplot.cc util.cc text.cc
+	  dir.cc kml.cc gnuplot.cc util.cc text.cc parse.cc
 LIBOBJ := $(LIBSRC:.cc=.o)
 
-TSTSRC := trackmain.cc
+TSTSRC := trackmain.cc sameroute.cc
 TSTOBJ := $(TSTSRC:.cc=.o)
 TSTBIN := $(TSTSRC:.cc=)
 
@@ -13,7 +13,7 @@ CXXFLAGS := -g -fPIC
 
 LDFLAGS += -L. -ltrack -lfit
 
-all: lib track
+all: lib track sameroute
 
 lib: $(LIB)
 
@@ -23,6 +23,9 @@ $(LIB): $(LIBOBJ)
 
 track: $(LIB) trackmain.o
 	$(CXX) trackmain.o -o track $(LDFLAGS)
+
+sameroute: $(LIB) sameroute.o
+	$(CXX) sameroute.o -o sameroute $(LDFLAGS)
 
 clean:
 	-$(RM) $(LIBOBJ) $(TSTSRC:.cc=.o) $(TSTBIN) $(LIB) *~

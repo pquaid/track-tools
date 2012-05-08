@@ -7,6 +7,7 @@
 #include "gnuplot.h"
 #include "gpx.h"
 #include "text.h"
+#include "parse.h"
 
 #include <sys/time.h>
 #include <string.h>
@@ -17,31 +18,6 @@
 #include <sstream>
 
 using namespace std;
-
-enum Format {
-    FORMAT_GPX,
-    FORMAT_KML,
-    FORMAT_FIT,
-    FORMAT_GNUPLOT,
-    FORMAT_TEXT,
-    FORMAT_UNKNOWN
-};
-
-Format stringToFormat(const string & format) {
-    if (format == "gpx") {
-        return FORMAT_GPX;
-    } else if (format == "kml") {
-        return FORMAT_KML;
-    } else if (format == "fit") {
-        return FORMAT_FIT;
-    } else if (format == "gnuplot") {
-        return FORMAT_GNUPLOT;
-    } else if (format == "txt") {
-        return FORMAT_TEXT;
-    } else {
-        return FORMAT_UNKNOWN;
-    }
-}
 
 void usage() {
     cerr << "Usage: track -f <input-file> " << endl
@@ -60,8 +36,9 @@ void usage() {
 
 // Command-line options
 static string inputFilename;
-Format inputFormat  = FORMAT_UNKNOWN;
-Format outputFormat = FORMAT_UNKNOWN;
+static Parse::Format inputFormat  = Parse::FORMAT_UNKNOWN;
+static Parse::Format outputFormat = Parse::FORMAT_UNKNOWN;
+static bool plotOutput = false;
 
 static bool doClimbs     = true;
 static bool doPeaks      = false;
@@ -224,19 +201,24 @@ static void processCommandLine(int argc, char * argv[]) {
             inputFilename = optarg;
             break;
         case 'o':
-            outputFormat = stringToFormat(optarg);
-            if (outputFormat == FORMAT_UNKNOWN) {
-                throw Exception(string("Unknown output format '") +
-                                optarg + "'");
+            if (optarg == string("gnuplot")) {
+                outputFormat = Parse::FORMAT_UNKNOWN;
+                plotOutput = true;
+            } else {
+                outputFormat = Parse::stringToFormat(optarg);
+                if (outputFormat == Parse::FORMAT_FIT) {
+                    throw Exception("Unable to write FIT files");
+                } else if (outputFormat == Parse::FORMAT_UNKNOWN) {
+                    throw Exception(string("Unknown output format '") +
+                                    optarg + "'");
+                }
             }
             break;
         case 'i':
-            inputFormat = stringToFormat(optarg);
-            if (inputFormat == FORMAT_UNKNOWN) {
+            inputFormat = Parse::stringToFormat(optarg);
+            if (inputFormat == Parse::FORMAT_UNKNOWN) {
                 throw Exception(string("Unknown input format '") +
                                 optarg + "'");
-            } else if (inputFormat == FORMAT_GNUPLOT) {
-                throw Exception("Can't read gnuplot scripts");
             }
             
             break;
@@ -300,53 +282,9 @@ int main(int argc, char * argv[]) {
 
         processCommandLine(argc, argv);
 
-        if ((inputFormat == FORMAT_UNKNOWN) && !inputFilename.empty()) {
-
-            if (Util::endsWith(inputFilename, ".gpx")) {
-                inputFormat = FORMAT_GPX;
-            } else if (Util::endsWith(inputFilename, ".fit")) {
-                inputFormat = FORMAT_FIT;
-            } else if (Util::endsWith(inputFilename, ".kml")) {
-                inputFormat = FORMAT_KML;
-            } else if (Util::endsWith(inputFilename, ".txt")) {
-                inputFormat = FORMAT_TEXT;
-            }
-        }
-
-        if (inputFormat == FORMAT_UNKNOWN) {
-            cerr << "Couldn't deduce the format of the input" << endl;
-            return 1;
-        }
-
         // Read it
         Track track;
-
-        {
-            ifstream infile;
-            istream * in;
-            if (inputFilename.empty() || (inputFilename == "-")) {
-                in = &cin;
-            } else {
-                infile.open(inputFilename.c_str(),
-                            ios_base::in|ios_base::binary);
-                if (!infile.is_open()) {
-                    cerr << "Could not open " << inputFilename << endl;
-                    return 1;
-                }
-                in = &infile;
-            }
-            POSTCONDITION(in != 0);
-
-            if (inputFormat == FORMAT_GPX) {
-                GPX::read(*in, track);
-            } else if (inputFormat == FORMAT_FIT) {
-                Fit::read(*in, track);
-            } else if (inputFormat == FORMAT_KML) {
-                KML::read(*in, track);
-            } else if (inputFormat == FORMAT_TEXT) {
-                Text::read(*in, track);
-            }
-        }
+        Parse::read(track, inputFilename, inputFormat);
 
         // Do some calculations
         track.calculateSegmentGrade(100);
@@ -366,15 +304,15 @@ int main(int argc, char * argv[]) {
         if (downsample)  track.sample(200);
 
         // Write the results, if desired
-        if (outputFormat == FORMAT_GNUPLOT) {
+        if (plotOutput) {
             Gnuplot::Options opt;
             opt.metric = metric;
             Gnuplot::write(cout, track, opt);
-        } else if (outputFormat == FORMAT_KML) {
+        } else if (outputFormat == Parse::FORMAT_KML) {
             KML::write(cout, track);
-        } else if (outputFormat == FORMAT_GPX) {
+        } else if (outputFormat == Parse::FORMAT_GPX) {
             GPX::write(cout, track);
-        } else if (outputFormat == FORMAT_TEXT) {
+        } else if (outputFormat == Parse::FORMAT_TEXT) {
             Text::write(cout, track);
         } else {
             cerr << "Nothing to write" << endl;

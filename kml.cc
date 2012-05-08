@@ -95,12 +95,15 @@ void KML::write(ostream & out, Track & track) {
 
     streamsize precision = out.precision();
 
+    string name(track.getName());
+    if (name.empty()) name = "Path";
+
     out << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" << endl
         << "<kml xmlns=\"http://earth.google.com/kml/2.2\">" << endl
         << "<Document>" << endl
-        << "<name>" << track.getName() << "</name>" << endl
+        << "<name>" << name << "</name>" << endl
         << "<Placemark>" << endl
-        << "<name>" << track.getName() << "</name>" << endl
+        << "<name>" << name << "</name>" << endl
         << "<Style><LineStyle>" << endl
         << "<color>FF0000FF</color><width>3.0</width>" << endl
         << "</LineStyle></Style>" << endl
