@@ -37,13 +37,12 @@ static void parseCoords(const string & coordString,
 
         c >> p.lon >> p.lat >> p.elevation;
 
-        if (track.empty()) {
-            p.length = 0;
-        } else {
-            p.length = p.distance(track.last());
-        }
-
         p.seq = track.size();
+
+        p.length = 0;
+        if (!track.empty()) {
+            p.length = track.last().length + p.distance(track.last());
+        }
 
         track.push_back(p);
     }
@@ -56,12 +55,20 @@ static void processDoc(Document & doc, Track & track) {
         throw KMLError("No <kml> element");
     }
 
+    const char * containerName = "Folder";
+    xml_node<> * container = kml->first_node(containerName);
+    if (container == 0) {
+        containerName = "Document";
+        container = kml->first_node(containerName);
+    }
 
-    for (xml_node<> * folder = kml->first_node("Folder");
-         folder != 0;
-         folder = folder->next_sibling("Folder")) {
+    if (container != 0) {
+        xml_node<> * name = container->first_node("name");
+        track.setName(name->value());
+    }
 
-        xml_node<> * placemark = folder->first_node("Placemark");
+    for ( ; container != 0; container = container->next_sibling(containerName)) {
+        xml_node<> * placemark = container->first_node("Placemark");
         if (placemark != 0) {
 
             xml_node<> * linestring = placemark->first_node("LineString");
@@ -91,7 +98,7 @@ void KML::read(istream & in, Track & track) {
 
 
 
-void KML::write(ostream & out, Track & track) {
+void KML::write(ostream & out, Track & track, Options options) {
 
     streamsize precision = out.precision();
 
@@ -105,7 +112,13 @@ void KML::write(ostream & out, Track & track) {
         << "<Placemark>" << endl
         << "<name>" << name << "</name>" << endl
         << "<Style><LineStyle>" << endl
-        << "<color>FF0000FF</color><width>3.0</width>" << endl
+        << "<color>";
+
+    char buffer[100];
+    snprintf(buffer, sizeof(buffer), "%02x%06x",
+             options.opacity, options.color);
+
+    out << buffer << "</color><width>" << options.width << "</width>" << endl
         << "</LineStyle></Style>" << endl
         << "<LineString>" << endl
         << "<extrude>false</extrude>" << endl
@@ -124,7 +137,7 @@ void KML::write(ostream & out, Track & track) {
     out << "</coordinates>"
         << "</LineString></Placemark>" << endl;
 
-    if (!track.empty()) {
+    if (options.startAndEnd && !track.empty()) {
 
         out << "<Placemark><name>Start</name>" << endl
             << "<Style><IconStyle><scale>1.3</scale><Icon>" << endl

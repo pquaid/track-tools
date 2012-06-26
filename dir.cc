@@ -1,7 +1,11 @@
 #include "dir.h"
 #include "exception.h"
 
+#include <string>
+
 #include <errno.h>
+
+using namespace std;
 
 Directory::Directory(const char * dirname, bool skipDots) : skip(skipDots) {
 
@@ -34,5 +38,16 @@ std::string Directory::createPath(const std::string & path,
         return path + "/" + filename;
     } else {
         return path + filename;
+    }
+}
+
+
+string Directory::basename(const string & str) {
+
+    string::size_type p = str.find_last_of('/');
+    if ((p != string::npos) && (p < (str.size()-1))) {
+        return str.substr(p+1);
+    } else {
+        return str;
     }
 }

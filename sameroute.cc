@@ -15,6 +15,7 @@ comparison if you don't find a point very close at all.
 #include "track.h"
 #include "util.h"
 #include "parse.h"
+#include "dir.h"
 
 #include <string>
 #include <vector>
@@ -89,16 +90,6 @@ static Result compare(const Track & left, const Track & right) {
     }
 }
 
-static string basename(const string & str) {
-
-    string::size_type p = str.find_last_of('/');
-    if ((p != string::npos) && (p < (str.size()-1))) {
-        return str.substr(p+1);
-    } else {
-        return str;
-    }
-}
-
 typedef set<string> Cluster;
 
 int main(int argc, char * argv[]) {
@@ -113,7 +104,7 @@ int main(int argc, char * argv[]) {
             Parse::read(*t, argv[i]);
 
             string n(t->getName());
-            string s(basename(argv[i]));
+            string s(Directory::basename(argv[i]));
             if (!n.empty()) {
                 s += " (";
                 s += n;

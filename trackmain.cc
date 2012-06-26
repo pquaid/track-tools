@@ -8,10 +8,12 @@
 #include "gpx.h"
 #include "text.h"
 #include "parse.h"
+#include "dir.h"
 
 #include <sys/time.h>
 #include <string.h>
 #include <math.h>
+#include <stdlib.h>
 
 #include <iostream>
 #include <fstream>
@@ -20,15 +22,23 @@
 using namespace std;
 
 void usage() {
-    cerr << "Usage: track -f <input-file> " << endl
-         << "             -i <input-format> (gpx, kml, fit, txt -- optional)" << endl
-         << "             -o <output-format> (gpx, kml, gnuplot, txt)" << endl
+    cerr << "Usage: track [-options] [input-files]" << endl
+         << "Options:" << endl
+         << "             -a <int> (alpha for KML line, 0..255)" << endl
+         << "             -b <lon-1>,<lon-2>,<lat-1>,<lat-2> (mask)" << endl
          << "             -c (calculate climbs)" << endl
-         << "             -p (calculate peaks)" << endl
          << "             -d (calculate most difficult KM)" << endl
-         << "             -s (sample)" << endl
+         << "             -e (omit start/end in KML)" << endl
+         << "             -f <input-file> " << endl
+         << "             -i <input-format> (gpx, kml, fit, txt -- optional)" << endl
+         << "             -l (KML line color - BGR, eg 0xBBGGRR)" << endl
+         << "             -m (metric)" << endl
+         << "             -o <output-format> (gpx, kml, gnuplot, txt)" << endl
+         << "             -p (calculate peaks)" << endl
          << "             -q (quiet; print nothing extra)" << endl
+         << "             -s (sample)" << endl
          << "             -v (verbose; default)" << endl
+         << "             -w <double> (width of KML line)" << endl
          << endl
          << "The -i parameter is optional if the filename ends with" << endl
          << "one of: .gpx, .kml, .fit or .txt" << endl;
@@ -52,6 +62,9 @@ static double maskMinLat = 0;
 static double maskMinLon = 0;
 static double maskMaxLat = 0;
 static double maskMaxLon = 0;
+
+static KML::Options kmlOptions;
+
 
 static double altitude(double meters) {
     if (metric) {
@@ -193,12 +206,27 @@ static void processMask(string arg) {
 static void processCommandLine(int argc, char * argv[]) {
 
     while (true) {
-        int opt = getopt(argc, argv, "f:o:i:cpdsqvmb:");
+        int opt = getopt(argc, argv, "a:b:cdef:i:l:mo:pqsvw:");
         if (opt == -1) break;
 
         switch (opt) {
+        case 'a':
+            kmlOptions.opacity = strtol(optarg, 0, 0);
+            if (kmlOptions.opacity > 255) {
+                throw Exception("-a (opacity) must be between 0 and 255");
+            }
+            break;
+        case 'e':
+            kmlOptions.startAndEnd = false;
+            break;
         case 'f':
             inputFilename = optarg;
+            break;
+        case 'l':
+            kmlOptions.color = strtol(optarg, 0, 0);
+            if (kmlOptions.color > 0xffffff) {
+                throw Exception("-l (line color) must be 0 to 0xffffff");
+            }
             break;
         case 'o':
             if (optarg == string("gnuplot")) {
@@ -220,7 +248,6 @@ static void processCommandLine(int argc, char * argv[]) {
                 throw Exception(string("Unknown input format '") +
                                 optarg + "'");
             }
-            
             break;
             
         case 'c':
@@ -256,9 +283,12 @@ static void processCommandLine(int argc, char * argv[]) {
             processMask(optarg);
             break;
 
+        case 'w':
+            kmlOptions.width = strtod(optarg, 0);
+            break;
+
         default:
-            string s(optopt, 1);
-            throw Exception("Unknown option " + s);
+            throw Exception("Unknown option");
         }
     }
 
@@ -270,6 +300,16 @@ static void processCommandLine(int argc, char * argv[]) {
             throw Exception(string("Extra parameter detected: ") +
                             argv[optind]);
         }
+    }
+}
+
+static string removeSuffix(const string & str) {
+
+    string::size_type pos = str.find_last_of('.');
+    if ((pos != string::npos) && (pos != 0)) {
+        return str.substr(0,pos);
+    } else {
+        return str;
     }
 }
 
@@ -285,6 +325,10 @@ int main(int argc, char * argv[]) {
         // Read it
         Track track;
         Parse::read(track, inputFilename, inputFormat);
+
+        if (track.getName().empty()) {
+            track.setName(removeSuffix(Directory::basename(inputFilename)));
+        }
 
         // Do some calculations
         track.calculateSegmentGrade(100);
@@ -309,7 +353,7 @@ int main(int argc, char * argv[]) {
             opt.metric = metric;
             Gnuplot::write(cout, track, opt);
         } else if (outputFormat == Parse::FORMAT_KML) {
-            KML::write(cout, track);
+            KML::write(cout, track, kmlOptions);
         } else if (outputFormat == Parse::FORMAT_GPX) {
             GPX::write(cout, track);
         } else if (outputFormat == Parse::FORMAT_TEXT) {

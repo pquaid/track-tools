@@ -556,25 +556,68 @@ void Track::mostDifficult(int meters, int & start, int & end, double & score) {
 
     // Find the most difficult stretch of 'meters'.
 
+    // Here's what I'll do: for each point, create a 'pain' number
+    // (grade^^2 * length), then just scan once for the most difficult
+    // stretch.
+    //
+    // Squaring the grade matches reality, I think, but also unfortunately
+    // exaggerates sensor errors. So to combat that, I'm using an extended
+    // average. I'm also *not* using the segment grade, because that is also
+    // too susceptible to sensor error.
+
+    if (empty()) return;
+
+    auto_ptr<double> pain(new double[size()]);
+
+    const int SAMPLES = 10;
+    double runningGrade = 0;
+    pain.get()[0] = 0;
+
+    for (int i = 1; i < size(); i++) {
+
+        double ele = at(i).elevation - at(i-1).elevation;
+        double length = at(i).length - at(i-1).length;
+        double grade = 100 * (ele / length);
+        if (length <= 1) {
+            grade = runningGrade;
+        }
+
+        // We need to avoid crazy spikes in grade due to sensor error
+        runningGrade = (runningGrade * (SAMPLES-1) + grade) / SAMPLES;
+
+        if (runningGrade > 0) {
+            pain.get()[i] = (runningGrade * runningGrade) * length;
+        } else {
+            pain.get()[i] = 0;
+        }
+    }
+
+    // Now just find the most difficult 'meters' span
+
     score = 0;
     start = -1;
     end = -1;
-    for (int i = 0; i < size(); i++) {
 
-        double thisScore = 0;
-        for (int j = i + 1; j < size(); j++) {
-            if ((at(j).length - at(i).length) <= meters) {
-                double ele = at(j).elevation - at(j-1).elevation;
-                if (ele > 0) {
-                    thisScore += ele * ele * (at(j).length - at(i).length);
-                }
-            } else {
-                if (thisScore > score) {
-                    start = i;
-                    end = j-1;
-                    score = thisScore;
-                }
-                break;
+    int s = 0; // candidate start
+    double total = 0;
+
+    for (int i = 1; i < size(); i++) {
+
+        total += pain.get()[i];
+        while ((at(i).length - at(s).length) > meters) {
+            total -= pain.get()[s];
+            s++;
+        }
+
+        // We use the fact that we've bumped 's' as an indication that
+        // distance(s,i) is approximately 'meters' long. So, yeah, the
+        // first point will never be included.
+        
+        if (s > 0) {
+            if (total > score) {
+                score = total;
+                start = s;
+                end = i;
             }
         }
     }

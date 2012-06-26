@@ -18,6 +18,8 @@ public:
     static std::string createPath(const std::string & directory,
                                   const std::string & filename);
 
+    static std::string basename(const std::string & path);
+
 private:
 
     DIR * directory;
