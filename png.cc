@@ -163,7 +163,8 @@ static void graphGrade(Image & img, Track & track, bool grade) {
 }
 
 static void graphElevation(Image & img, Track & track,
-                           int start, int end, int color) {
+                           int start, int end, int color,
+                           int offsetX = 0, int offsetY = 0) {
 
     PRECONDITION(start >= 0);
     PRECONDITION(start < track.size());
@@ -177,8 +178,8 @@ static void graphElevation(Image & img, Track & track,
 
     for (int i = start; i <= end; i++) {
 
-        int x = img.getX(track[i].length);
-        int y = img.getY(track[i].elevation);
+        int x = img.getX(track[i].length) + offsetX;
+        int y = img.getY(track[i].elevation) + offsetY;
 
         if ((x != prevX) || (y != prevY)) {
             gdImageLine(img.ptr, prevX, prevY, x, y, color);
@@ -449,6 +450,34 @@ void PNG::write(ostream & out, Track & track, Options opt) {
 
     if (opt.difficult) {
         drawDifficult(img, track);
+    }
+
+    if (false) {
+        const int SIZEX = 3;
+        const int SIZEY = 3;
+        gdImagePtr brush = gdImageCreate(SIZEX, SIZEY);
+        double zero = sqrt(SIZEX/2 * SIZEX/2 + SIZEY/2 * SIZEY/2);
+
+        int clear = gdImageColorResolve(brush, 0xFF, 0xFF, 0xFF);
+        gdImageColorTransparent(brush, clear);
+        gdImageFilledRectangle(brush, 0, 0, SIZEX-1, SIZEY-1, clear);
+
+        for (int x = 0; x < SIZEX; x++) {
+            for (int y = 0; y < SIZEY; y++) {
+                double dist = sqrt((x - SIZEX/2) * (x - SIZEX/2) +
+                                   (y - SIZEY/2) * (y - SIZEY/2));
+                int alpha = (dist / zero) * 127;
+                if (alpha > 127) alpha = 127;
+                int color = gdImageColorResolveAlpha(brush, 0x00, 0x00, 0x00, alpha);
+                gdImageSetPixel(brush, x, y, color);
+            }
+        }
+
+        gdImageSetClip(img.ptr, img.left, img.top, img.right, img.bottom);
+        gdImageSetBrush(img.ptr, brush);
+        graphElevation(img, track, 0, track.size()-1, gdBrushed, 4, 4);
+        gdImageDestroy(brush);
+        gdImageSetClip(img.ptr, 0, 0, img.options.width, img.options.height);
     }
 
     graphGrade(img, track, opt.grade);
