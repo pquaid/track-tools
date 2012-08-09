@@ -140,10 +140,12 @@ static void graphGrade(Image & img, Track & track, bool grade) {
 
             const double MAXGRADE = 12;
             double h = track[i].grade;
+
             if (h < 1) h = 0;
             if (h > MAXGRADE) h = MAXGRADE;
             
             h = ((h+6) * (h+6)) / ((MAXGRADE+6)*(MAXGRADE+6));
+
             POSTCONDITION(h >= 0);
             POSTCONDITION(h <= 100);
 

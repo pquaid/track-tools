@@ -51,6 +51,9 @@ class Track : public std::vector<Point> {
     // Trim the track to 'samples' points
     void sample(int samples);
 
+    // Shrink the track by averaging points down to the desired size
+    void average(int points);
+
     // Remove points within the given rectangle
     void mask(double minLon, double maxLon,
               double minLat, double maxLat);
@@ -125,6 +128,9 @@ class Track : public std::vector<Point> {
     // the results in 'start' and 'end'. Difficult, in this context, is
     // measured with the same arbitrary algorithm as 'calculateDifficulty'
     void mostDifficult(int meters, int & start, int & end, double & score);
+
+    double getMaximumElevation() const;
+    double getMinimumElevation() const;
 
     // Only non-empty if you've called calculatePeaks
     const std::vector<Peak> & getPeaks() const { return peaks; }

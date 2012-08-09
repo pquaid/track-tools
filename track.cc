@@ -3,6 +3,7 @@
 
 #include <sstream>
 #include <memory>
+#include <stdint.h>
 
 using namespace std;
 
@@ -52,6 +53,67 @@ void Track::sample(int samples) {
             erase(begin() + i, begin() + end);
         }
     }
+}
+
+void Track::average(int points) {
+
+    PRECONDITION(points > 0);
+
+    if (points >= size()) return;
+
+    vector<Point> replacements;
+
+    for (int i = 0; i < points; i++) {
+
+        int start = (((double) i) / points) * size();
+        int end   = (((double) i + 1) / points) * size();
+
+        POSTCONDITION(end <= size());
+
+        Point p;
+        p = at(start);
+        p.seq = i;
+
+        int64_t t = p.timestamp;
+
+        for (int j = start + 1; j < end; j++) {
+
+            p.lat       += at(j).lat;
+            p.lon       += at(j).lon;
+            p.elevation += at(j).elevation;
+            p.length    += at(j).length;
+            p.hr        += at(j).hr;
+            p.atemp     += at(j).atemp;
+            p.grade     += at(j).grade;
+            p.velocity  += at(j).velocity;
+            p.climb     += at(j).climb;
+
+            t += at(j).timestamp;
+        }
+
+        int count = end - start;
+
+        if (count > 1) {
+            p.lat       /= count;
+            p.lon       /= count;
+            p.elevation /= count;
+            p.length    /= count;
+            p.hr        /= count;
+            p.atemp     /= count;
+            p.grade     /= count;
+            p.velocity  /= count;
+            p.climb     /= count;
+
+            p.timestamp = t / count;
+        }
+
+        p.grade = 0;
+
+        replacements.push_back(p);
+    }
+
+    clear();
+    assign(replacements.begin(), replacements.end());
 }
 
 // Remove points within the given rectangle
@@ -158,6 +220,8 @@ void Track::calculateSegmentGrade(double segmentLength) {
         double deltaE = last().elevation - segmentStartElevation;
         double deltaD = last().length - segmentStartDistance;
         double grade = (deltaE / deltaD) * 100;
+        if (deltaD == 0) grade = 0;
+
         for (int i = segmentStartIndex; i < size(); i++) {
             at(i).grade = grade;
         }
@@ -293,6 +357,30 @@ time_t Track::getEndTime() const {
     } else {
         return last().timestamp;
     }
+}
+
+double Track::getMaximumElevation() const {
+
+    PRECONDITION(!empty());
+
+    double max = at(0).elevation;
+    for (int i = 1; i < size(); i++) {
+        if (at(i).elevation > max) max = at(i).elevation;
+    }
+
+    return max;
+}
+
+double Track::getMinimumElevation() const {
+
+    PRECONDITION(!empty());
+
+    double min = at(0).elevation;
+    for (int i = 1; i < size(); i++) {
+        if (at(i).elevation < min) min = at(i).elevation;
+    }
+
+    return min;
 }
 
 

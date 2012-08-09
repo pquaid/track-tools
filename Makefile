@@ -1,5 +1,5 @@
 
-LIBSRC := point.cc track.cc gpx.cc document.cc fit.cc \
+LIBSRC := point.cc track.cc gpx.cc document.cc fit.cc png.cc js.cc \
 	  dir.cc kml.cc gnuplot.cc util.cc text.cc parse.cc
 LIBOBJ := $(LIBSRC:.cc=.o)
 
@@ -11,7 +11,7 @@ LIB    := libtrack.a
 
 CXXFLAGS := -g -fPIC
 
-LDFLAGS += -L. -ltrack -lfit
+LDFLAGS += -L. -ltrack -lfit -lgd
 
 all: lib track sameroute
 

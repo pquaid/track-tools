@@ -70,6 +70,10 @@ Parse::Format Parse::stringToFormat(const std::string & format) {
         return FORMAT_FIT;
     } else if (format == "txt") {
         return FORMAT_TEXT;
+    } else if (format == "png") {
+        return FORMAT_PNG;
+    } else if (format == "js") {
+        return FORMAT_JS;
     } else {
         return FORMAT_UNKNOWN;
     }

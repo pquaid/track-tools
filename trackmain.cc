@@ -6,6 +6,8 @@
 #include "util.h"
 #include "gnuplot.h"
 #include "gpx.h"
+#include "png.h"
+#include "js.h"
 #include "text.h"
 #include "parse.h"
 #include "dir.h"
@@ -33,6 +35,7 @@ void usage() {
          << "             -i <input-format> (gpx, kml, fit, txt -- optional)" << endl
          << "             -l (KML line color - BGR, eg 0xBBGGRR)" << endl
          << "             -m (metric)" << endl
+         << "             -n <int> (average down to 'n' samples)" << endl
          << "             -o <output-format> (gpx, kml, gnuplot, txt)" << endl
          << "             -p (calculate peaks)" << endl
          << "             -q (quiet; print nothing extra)" << endl
@@ -56,6 +59,7 @@ static bool doDifficult  = true;
 static bool downsample   = false;
 static bool quiet        = false;
 static bool metric       = false;
+static int  average      = 0;
 
 static bool doMask       = false;
 static double maskMinLat = 0;
@@ -133,7 +137,7 @@ static void calculatePeaks(Track & track) {
 
 static void calculateClimbs(Track & track) {
 
-    track.calculateClimbs(4, 0.8, 1000, 6, 100, 400, 0.35);
+    track.calculateClimbs(4, 0.8, 1000, 6, 100, 600, 0.35);
 
     if (quiet) return;
 
@@ -206,7 +210,7 @@ static void processMask(string arg) {
 static void processCommandLine(int argc, char * argv[]) {
 
     while (true) {
-        int opt = getopt(argc, argv, "a:b:cdef:i:l:mo:pqsvw:");
+        int opt = getopt(argc, argv, "a:b:cdef:i:l:mn:o:pqsvw:");
         if (opt == -1) break;
 
         switch (opt) {
@@ -244,14 +248,20 @@ static void processCommandLine(int argc, char * argv[]) {
             break;
         case 'i':
             inputFormat = Parse::stringToFormat(optarg);
-            if (inputFormat == Parse::FORMAT_UNKNOWN) {
-                throw Exception(string("Unknown input format '") +
-                                optarg + "'");
+            if (inputFormat == Parse::FORMAT_PNG) {
+                throw Exception("Unable to read PNG files");
+            } else if (inputFormat == Parse::FORMAT_JS) {
+                throw Exception("Unable to read JS files");
+            } else {
+                if (inputFormat == Parse::FORMAT_UNKNOWN) {
+                    throw Exception(string("Unknown input format '") +
+                                    optarg + "'");
+                }
             }
             break;
             
         case 'c':
-            doClimbs = true;
+            doClimbs = false;
             break;
 
         case 'p':
@@ -259,7 +269,7 @@ static void processCommandLine(int argc, char * argv[]) {
             break;
 
         case 'd':
-            doDifficult = true;
+            doDifficult = false;
             break;
 
         case 's':
@@ -276,6 +286,13 @@ static void processCommandLine(int argc, char * argv[]) {
 
         case 'm':
             metric = true;
+            break;
+
+        case 'n':
+            average = strtol(optarg, 0, 0);
+            if (average < 0) {
+                throw Exception("-n (average) must be between 0 and 255");
+            }
             break;
 
         case 'b':
@@ -330,6 +347,10 @@ int main(int argc, char * argv[]) {
             track.setName(removeSuffix(Directory::basename(inputFilename)));
         }
 
+        if (average > 0) {
+            track.average(average);
+        }
+
         // Do some calculations
         track.calculateSegmentGrade(100);
         double climb = track.calculateClimb(10);
@@ -358,6 +379,14 @@ int main(int argc, char * argv[]) {
             GPX::write(cout, track);
         } else if (outputFormat == Parse::FORMAT_TEXT) {
             Text::write(cout, track);
+        } else if (outputFormat == Parse::FORMAT_PNG) {
+            PNG::Options opt;
+            opt.metric = metric;
+            opt.climbs = doClimbs;
+            opt.difficult = doDifficult;
+            PNG::write(cout, track, opt);
+        } else if (outputFormat == Parse::FORMAT_JS) {
+            JS::write(cout, track);
         } else {
             cerr << "Nothing to write" << endl;
         }

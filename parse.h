@@ -13,6 +13,8 @@ public:
         FORMAT_KML,
         FORMAT_FIT,
         FORMAT_TEXT,
+        FORMAT_PNG,
+        FORMAT_JS,
         FORMAT_UNKNOWN
     };
 
