@@ -72,8 +72,8 @@ Parse::Format Parse::stringToFormat(const std::string & format) {
         return FORMAT_TEXT;
     } else if (format == "png") {
         return FORMAT_PNG;
-    } else if (format == "js") {
-        return FORMAT_JS;
+    } else if (format == "json") {
+        return FORMAT_JSON;
     } else {
         return FORMAT_UNKNOWN;
     }

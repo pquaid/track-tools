@@ -14,7 +14,7 @@ public:
         FORMAT_FIT,
         FORMAT_TEXT,
         FORMAT_PNG,
-        FORMAT_JS,
+        FORMAT_JSON,
         FORMAT_UNKNOWN
     };
 

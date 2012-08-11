@@ -3,11 +3,32 @@
   <title>Canvas example</title>
 </head>
 <body>
-<canvas id="canvas-id" width="800" height="300"></canvas>
-<script type="text/javascript" src="trackdata.js"></script>
+<!-- Load the common code -->
 <script type="text/javascript" src="display-track.js"></script>
+
+<!-- Style 1: JSON -->
+<canvas id="canvas-json" width="600" height="200"></canvas>
 <script>
-    trackToolsDisplay('canvas-id', trackData, false);
+  loadTrackDataJSON('canvas-json', "trackdata.json", true);
+</script>
+
+<!-- Style 2: JSON with a callback -->
+<!--
+  You can load the script with the tag, as shown, or use the
+  loadTrackDataJSON() method as above
+-->
+<canvas id="canvas-json-callback" width="600" height="200"></canvas>
+<script>
+function trackDataCallback(track) {
+   displayTrackDataJSON('canvas-json-callback', track, false);
+}
+</script>
+<script type="text/javascript" src="trackdata-w-callback.json"></script>
+
+<!-- Style 3: GPX. This will not show climbs or the most difficult KM -->
+<canvas id="canvas-gpx" width="600" height="200"></canvas>
+<script>
+  loadTrackDataGPX('canvas-gpx', "trackdata.gpx", false);
 </script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 
-LIBSRC := point.cc track.cc gpx.cc document.cc fit.cc png.cc js.cc \
+LIBSRC := point.cc track.cc gpx.cc document.cc fit.cc png.cc json.cc \
 	  dir.cc kml.cc gnuplot.cc util.cc text.cc parse.cc
 LIBOBJ := $(LIBSRC:.cc=.o)
 

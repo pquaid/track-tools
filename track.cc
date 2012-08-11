@@ -40,6 +40,28 @@ const Point & Track::last() const {
 // 'samples', but not exact
 void Track::sample(int samples) {
 
+    if (samples >= size()) return;
+
+    /* This is slower, as written, and doesn't produce a visibly better
+       sample.
+
+    // Sample based on distance
+    double each = getTotalDistance() / (samples-1);
+    double pos = 0;
+
+    int i = 0;
+    while (i < size()-1) {
+
+        if (at(i).length < pos) {
+            erase(begin() + i);
+        } else {
+            pos += each;
+            i++;
+        }
+    }
+    */
+
+    // Sample every n'th point
     int each = size() / samples;
     if (each < 1) each = 1;
 

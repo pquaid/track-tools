@@ -8,73 +8,33 @@
   called 'trackData', containing arrays of points and climbs, and
   the most difficult kilometer of the ride.
 
-  Example output from 'track <something> -o js':
+  Example output from 'track <something> -o json':
 
-  var trackData = new Object();
-  trackData.points = [[13523.1,201.932],
-  [44060.7,171.302],
-  [78010.2,163.604],
-  [100480,275.89],
-  [121471,300.916]];
-  trackData.climbs = [
-  { start: 2, end: 3 }];
-  trackData.difficult = { start: 4, end: 4, score: 47.8583};
+  {
+    "points": [
+    [13523.1,201.932],
+    [44060.7,171.302],
+    [78010.2,163.604],
+    [100480,275.89],
+    [121471,300.916]],
+    "climbs": [
+    { "start": 2, "end": 3 }],
+    "difficult": { "start": 4, "end": 4, "score": 47.8583 }
+    }
 
-  trackData.points is an array of [distance,elevation] values, both
-  expressed in meters.
+  "points" is an array of [distance,elevation] values, both expressed
+  in meters.
 
-  trackData.climbs is an array of start/end points of automatically-
-  detected climbs, expressed as indexes within the 'points' array. Note
+  "climbs" is an array of start/end points of automatically-detected
+  climbs, expressed as indexes within the 'points' array. Note
   that 'end' is part of the climb.
 
-  trackData.difficult indicates the most difficult kilometer of the
-  ride, again expressed as indexes. The score is an arbitrary number,
-  but scores <= 0 mean there was no climb detected.
+  "difficult" indicates the most difficult kilometer of the ride, again
+  expressed as indexes. The score is an arbitrary number, but scores <= 0
+  mean there was no climb detected.
 
   html-example.html shows how to use this.
 */
-
-// Define some methods for 'trackData'
-
-// Convert elevation and distance data to the displayed form (metric or not)
-
-trackData.elevation = function(val) {
-    if (this.metric) {
-        return val;
-    } else {
-        return val * 3.2808;
-    }
-}
-
-trackData.distance = function(val) {
-    if (this.metric) {
-        return val / 1000;
-    } else {
-        return (val / 1000) * 0.62137;
-    }
-}
-
-// Calculate the X or Y pixel position of the given data value, expressed
-// in presentation form (ie metric or not).
-
-trackData.getRawY = function(val) {
-    return this.bottom - ((val - this.minY) / (this.maxY - this.minY)) * (this.bottom - this.top);
-}
-
-trackData.getRawX = function(val) {
-    return ((val - this.minX) / (this.maxX - this.minX)) * (this.right - this.left) + this.left;
-}
-
-// Calculate the X or Y pixel position of the given point within the
-// 'points' array.
-
-trackData.getY = function(idx) {
-    return this.getRawY(this.elevation(this.points[idx][1]));
-}
-
-trackData.getX = function(idx) {
-    return this.getRawX(this.distance(this.points[idx][0]));
-}
 
 
 function getLabelWidthY(ctx, img) {
@@ -95,8 +55,10 @@ function displayTicsY(ctx, img) {
     ctx.fillStyle = '#404040';
     ctx.font = '10pt sans-serif';
     for (var i = img.minY; i <= img.maxY; i += img.incrY) {
+
         var w = ctx.measureText(i + "").width;
         var y = Math.round(img.getRawY(i)) + 0.5;
+
         ctx.fillText(i + "", (width - w)+5, y+4);
         
         ctx.beginPath();
@@ -153,13 +115,18 @@ function calculateDataRange(track) {
 
     // Now figure out the appropriate tic increments
     var range = track.maxY - track.minY;
-    track.incrY = Math.pow(10, Math.floor(Math.log(range)/Math.LN10));
+    if (range == 0) {
+        track.incrY = 1;
+    } else {
 
-    var tics = range / track.incrY;
-    if (tics < 3) {
-        track.incrY /= 2;
-    } else if (tics > 7) {
-        track.incrY *= 2;
+        track.incrY = Math.pow(10, Math.floor(Math.log(range)/Math.LN10));
+
+        var tics = range / track.incrY;
+        if (tics < 3) {
+            track.incrY /= 2;
+        } else if (tics > 7) {
+            track.incrY *= 2;
+        }
     }
 
     // We'll adjust the Y min/max to neatly fit the increments. We won't
@@ -170,22 +137,92 @@ function calculateDataRange(track) {
     track.maxY = Math.ceil(track.maxY / track.incrY) * track.incrY;
 
     range = track.maxX - track.minX;
-    track.incrX = Math.pow(10, Math.floor(Math.log(range)/Math.LN10));
+    if (range == 0) {
+        track.incrX = 1;
+        track.minX -= 1;
+        track.maxX += 1;
+    } else {
 
-    tics = range / track.incrX;
-    if (tics < 3) {
-        track.incrX /= 2;
-    } else if (tics > 7) {
-        track.incrX *= 2;
+        track.incrX = Math.pow(10, Math.floor(Math.log(range)/Math.LN10));
+
+        tics = range / track.incrX;
+        if (tics < 3) {
+            track.incrX /= 2;
+        } else if (tics > 7) {
+            track.incrX *= 2;
+        }
     }
 }
 
-function trackToolsDisplay(canvasId, track, isMetric) {
+function TrackData(inPoints, inClimbs, inDifficult, inMetric) {
+
+    this.points    = inPoints;
+    this.climbs    = inClimbs;
+    this.difficult = inDifficult;
+    this.metric    = inMetric;
+
+    this.minX  = 0;
+    this.maxX  = 0;
+    this.minY  = 0;
+    this.maxY  = 0;
+    this.incrX = 0;
+    this.incrY = 0;
+
+    // These really pertain to the resulting graph, not the track itself
+    this.left   = 0;
+    this.right  = 0;
+    this.top    = 0;
+    this.bottom = 0;
+    this.height = 0;
+    this.width  = 0;
+
+    // Return the presentable value, ie metric or not.
+    this.elevation = function(val) {
+        if (this.metric) {
+            return val;
+        } else {
+            return val * 3.2808;
+        }
+    }
+    
+    this.distance = function(val) {
+        if (this.metric) {
+            return val / 1000;
+        } else {
+            return (val / 1000) * 0.62137;
+        }
+    }
+
+    // Calculate the X or Y pixel position of the given data value, expressed
+    // in presentation form (ie metric or not).
+
+    this.getRawY = function(val) {
+        return this.bottom - ((val - this.minY) / (this.maxY - this.minY)) * (this.bottom - this.top);
+    }
+
+    this.getRawX = function(val) {
+        return ((val - this.minX) / (this.maxX - this.minX)) * (this.right - this.left) + this.left;
+    }
+
+    // Calculate the X or Y pixel position of the given point within the
+    // 'points' array.
+
+    this.getY = function(idx) {
+        return this.getRawY(this.elevation(this.points[idx][1]));
+    }
+
+    this.getX = function(idx) {
+        return this.getRawX(this.distance(this.points[idx][0]));
+    }   
+
+}
+
+function trackToolsDisplay(canvasId, track) {
 
     var canvas = document.getElementById(canvasId);
     var ctx = canvas.getContext('2d');
 
-    track.metric = isMetric;
+    if (track.points.length == 0) return;
 
     calculateDataRange(track);
 
@@ -213,15 +250,15 @@ function trackToolsDisplay(canvasId, track, isMetric) {
 
     ctx.beginPath();
     ctx.fillStyle = gradient;
-    ctx.moveTo(track.left, track.bottom);
-    ctx.lineTo(track.left, track.getY(0));
+    ctx.moveTo(track.getX(0), track.bottom);
+    ctx.lineTo(track.getX(0), track.getY(0));
 
     for (var i in track.points) {
         ctx.lineTo(track.getX(i), track.getY(i));
     }
 
-    ctx.lineTo(track.right, track.bottom);
-    ctx.lineTo(track.left, track.bottom);
+    ctx.lineTo(track.getX(track.points.length-1), track.bottom);
+    ctx.lineTo(track.getX(0), track.bottom);
     ctx.fill();
 
     // Draw the elevation line
@@ -241,27 +278,29 @@ function trackToolsDisplay(canvasId, track, isMetric) {
 
     // Highlight the climbs
 
-    for (var i in track.climbs) {
+    if (track.climbs && (track.climbs.length > 0)) {
+        for (var i in track.climbs) {
 
-        ctx.beginPath();
-        ctx.strokeStyle = '#a05050';
-        ctx.lineWidth = 6;
-        ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.strokeStyle = '#a05050';
+            ctx.lineWidth = 6;
+            ctx.lineJoin = 'round';
 
-        var start = track.climbs[i].start;
-        var end = track.climbs[i].end;
+            var start = track.climbs[i].start;
+            var end = track.climbs[i].end;
 
-        ctx.moveTo(track.getX(start), track.getY(start));
+            ctx.moveTo(track.getX(start), track.getY(start));
 
-        for (var p = start + 1; p <= end; p++) {
-            ctx.lineTo(track.getX(p), track.getY(p));
+            for (var p = start + 1; p <= end; p++) {
+                ctx.lineTo(track.getX(p), track.getY(p));
+            }
+            ctx.stroke();
         }
-        ctx.stroke();
     }
 
     // Indicate the most difficult kilometer
 
-    if (track.difficult.score > 0) {
+    if (track.difficult && track.difficult.score > 0) {
 
         var start = track.getX(track.difficult.start);
         var end   = track.getX(track.difficult.end);
@@ -272,6 +311,105 @@ function trackToolsDisplay(canvasId, track, isMetric) {
                      end - start,
                      track.bottom - track.top);
     }
+}
+
+// GPX methods
+
+function deg2rad(deg) {
+    return deg * Math.PI / 180;
+}
+
+function latLonDistance(lat1,lon1,lat2,lon2) {
+
+    var dlon = deg2rad(lon2 - lon1);
+    var dlat = deg2rad(lat2 - lat1);
+
+    var a = Math.pow(Math.sin(dlat / 2), 2) + Math.cos(deg2rad(lat1)) *
+        Math.cos(deg2rad(lat2)) *
+        Math.pow(Math.sin(dlon / 2), 2);
+    return 2 * 6371000 * Math.asin(Math.sqrt(a));
+}
+
+function eleFromTrackpoint(trkpt) {
+    var ele = trkpt.getElementsByTagName("ele");
+    if (ele && (ele.length > 0) && (ele[0].childNodes.length > 0)) {
+        return parseFloat(ele[0].childNodes[0].nodeValue);
+    } else {
+        return 0;
+    }
+}
+
+function displayTrackDataGPX(canvasId, doc, metric) {
+
+    var trkpt = doc.getElementsByTagName("trkpt");
+
+    if (trkpt.length == 0) return;
+
+    // We need an array of length/elevation pairs, which GPX doesn't
+    // provide directly. We'll have to calculate the distance from
+    // point to point.
+    //
+    // We also want climbs and the most difficult KM, but we're not
+    // going to calculate that here. It'll have to be optional.
+
+    var points = new Array();
+    {
+        var prevLat = parseFloat(trkpt[0].getAttribute('lat'));
+        var prevLon = parseFloat(trkpt[0].getAttribute('lon'));
+
+        points.push([ 0, eleFromTrackpoint(trkpt[0]) ]);
+
+        var sofar = 0;
+
+        for (var i = 1; i < trkpt.length; i++) {
+
+            var lat = parseFloat(trkpt[i].getAttribute('lat'));
+            var lon = parseFloat(trkpt[i].getAttribute('lon'));
+
+            sofar += latLonDistance(prevLat,prevLon,lat,lon);
+            points.push([ sofar, eleFromTrackpoint(trkpt[i]) ]);
+
+            prevLat = lat;
+            prevLon = lon;
+        }
+    }
+
+    var track = new TrackData(points,
+                              null,
+                              null,
+                              metric);
+
+    trackToolsDisplay(canvasId, track);
+}
+
+function loadTrackDataGPX(canvasId, url, metric) {
+
+    var xmlhttp=new XMLHttpRequest();
+    xmlhttp.open("GET", url, false);
+    xmlhttp.send();
+    displayTrackDataGPX(canvasId, xmlhttp.responseXML, metric);
+}
+
+// JSON methods
+
+function displayTrackDataJSON(canvasId, points, metric) {
+
+    var track = new TrackData(points.points,
+                              points.climbs,
+                              points.difficult,
+                              metric);
+
+    trackToolsDisplay(canvasId, track);
+}
+
+function loadTrackDataJSON(canvasId, url, metric) {
+
+    var req = new XMLHttpRequest();
+    req.open("GET", url, false);
+    req.send();
+    var obj = JSON.parse(req.responseText);
+
+    displayTrackDataJSON(canvasId, obj, metric);
 }
 
 

@@ -7,7 +7,7 @@
 #include "gnuplot.h"
 #include "gpx.h"
 #include "png.h"
-#include "js.h"
+#include "json.h"
 #include "text.h"
 #include "parse.h"
 #include "dir.h"
@@ -33,13 +33,14 @@ void usage() {
          << "             -e (omit start/end in KML)" << endl
          << "             -f <input-file> " << endl
          << "             -i <input-format> (gpx, kml, fit, txt -- optional)" << endl
+         << "             -j <name> (JSON callback function)" << endl
          << "             -l (KML line color - BGR, eg 0xBBGGRR)" << endl
          << "             -m (metric)" << endl
          << "             -n <int> (average down to 'n' samples)" << endl
          << "             -o <output-format> (gpx, kml, gnuplot, txt)" << endl
          << "             -p (calculate peaks)" << endl
          << "             -q (quiet; print nothing extra)" << endl
-         << "             -s (sample)" << endl
+         << "             -s <int> (sample)" << endl
          << "             -v (verbose; default)" << endl
          << "             -w <double> (width of KML line)" << endl
          << endl
@@ -56,10 +57,11 @@ static bool plotOutput = false;
 static bool doClimbs     = true;
 static bool doPeaks      = false;
 static bool doDifficult  = true;
-static bool downsample   = false;
+static int  downsample   = 0;
 static bool quiet        = false;
 static bool metric       = false;
 static int  average      = 0;
+static string jsonCallback;
 
 static bool doMask       = false;
 static double maskMinLat = 0;
@@ -159,6 +161,8 @@ static void calculateClimbs(Track & track) {
 
 static void calculateDifficult(Track & track) {
 
+    if (track.empty()) return;
+
     int start = 0;
     int end = 0;
     double score = 0;
@@ -210,7 +214,7 @@ static void processMask(string arg) {
 static void processCommandLine(int argc, char * argv[]) {
 
     while (true) {
-        int opt = getopt(argc, argv, "a:b:cdef:i:l:mn:o:pqsvw:");
+        int opt = getopt(argc, argv, "a:b:cdef:i:j:l:mn:o:pqs:vw:");
         if (opt == -1) break;
 
         switch (opt) {
@@ -226,6 +230,11 @@ static void processCommandLine(int argc, char * argv[]) {
         case 'f':
             inputFilename = optarg;
             break;
+
+        case 'j':
+            jsonCallback = optarg;
+            break;
+
         case 'l':
             kmlOptions.color = strtol(optarg, 0, 0);
             if (kmlOptions.color > 0xffffff) {
@@ -250,8 +259,8 @@ static void processCommandLine(int argc, char * argv[]) {
             inputFormat = Parse::stringToFormat(optarg);
             if (inputFormat == Parse::FORMAT_PNG) {
                 throw Exception("Unable to read PNG files");
-            } else if (inputFormat == Parse::FORMAT_JS) {
-                throw Exception("Unable to read JS files");
+            } else if (inputFormat == Parse::FORMAT_JSON) {
+                throw Exception("Unable to read JSON files");
             } else {
                 if (inputFormat == Parse::FORMAT_UNKNOWN) {
                     throw Exception(string("Unknown input format '") +
@@ -273,7 +282,10 @@ static void processCommandLine(int argc, char * argv[]) {
             break;
 
         case 's':
-            downsample = true;
+            downsample = strtol(optarg, 0, 0);
+            if (downsample < 1) {
+                throw Exception("-s (downsample) must be greater than 0");
+            }
             break;
 
         case 'q':
@@ -291,7 +303,7 @@ static void processCommandLine(int argc, char * argv[]) {
         case 'n':
             average = strtol(optarg, 0, 0);
             if (average < 0) {
-                throw Exception("-n (average) must be between 0 and 255");
+                throw Exception("-n (average) must be greater than 0");
             }
             break;
 
@@ -366,7 +378,7 @@ int main(int argc, char * argv[]) {
         if (doPeaks)     calculatePeaks(track);
         if (doClimbs)    calculateClimbs(track);
         if (doDifficult) calculateDifficult(track);
-        if (downsample)  track.sample(200);
+        if (downsample > 0)  track.sample(downsample);
 
         // Write the results, if desired
         if (plotOutput) {
@@ -385,8 +397,10 @@ int main(int argc, char * argv[]) {
             opt.climbs = doClimbs;
             opt.difficult = doDifficult;
             PNG::write(cout, track, opt);
-        } else if (outputFormat == Parse::FORMAT_JS) {
-            JS::write(cout, track);
+        } else if (outputFormat == Parse::FORMAT_JSON) {
+            JSON::Options opt;
+            opt.callback = jsonCallback;
+            JSON::write(cout, track, opt);
         } else {
             cerr << "Nothing to write" << endl;
         }
