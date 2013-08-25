@@ -78,7 +78,6 @@ void Text::write(ostream & out, Track & track) {
     out << "# lat lon elevation timestamp seq hr atemp length grade velocity climb" << endl;
 
     streamsize s = out.precision();
-    out.precision(12);
 
     for (int i = 0; i < track.size(); i++) {
 

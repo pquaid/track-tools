@@ -11,7 +11,8 @@ LIB    := libtrack.a
 
 CXXFLAGS := -g -fPIC
 
-LDFLAGS += -L. -ltrack -lfit -lgd
+LDFLAGS += -L. -ltrack -lfit -lgd -LLIBDIR -L/usr/local/lib
+
 
 all: lib track sameroute
 

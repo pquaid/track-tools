@@ -58,6 +58,10 @@ class Track : public std::vector<Point> {
     void mask(double minLon, double maxLon,
               double minLat, double maxLat);
 
+    // Remove a few points at the beginning or end that result from failing
+    // to reset the computer.
+    void removeBurrs();
+
     // Set the elevation on a decaying average of elevation
     void decayElevation(int samples);
 

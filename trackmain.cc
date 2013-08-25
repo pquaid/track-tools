@@ -62,6 +62,7 @@ static bool quiet        = false;
 static bool metric       = false;
 static int  average      = 0;
 static string jsonCallback;
+static bool removeBurrs  = true;
 
 static bool doMask       = false;
 static double maskMinLat = 0;
@@ -214,7 +215,7 @@ static void processMask(string arg) {
 static void processCommandLine(int argc, char * argv[]) {
 
     while (true) {
-        int opt = getopt(argc, argv, "a:b:cdef:i:j:l:mn:o:pqs:vw:");
+        int opt = getopt(argc, argv, "a:b:cdef:i:j:l:mn:o:pqs:vw:y");
         if (opt == -1) break;
 
         switch (opt) {
@@ -316,6 +317,10 @@ static void processCommandLine(int argc, char * argv[]) {
             kmlOptions.width = strtod(optarg, 0);
             break;
 
+	case 'y':
+	  removeBurrs = !removeBurrs;
+	  break;
+
         default:
             throw Exception("Unknown option");
         }
@@ -344,75 +349,78 @@ static string removeSuffix(const string & str) {
 
 int main(int argc, char * argv[]) {
 
-    // Figure out the input, do some calculations, write the
-    // output (if any)
+  // Figure out the input, do some calculations, write the
+  // output (if any)
     
-    try {
+  try {
 
-        processCommandLine(argc, argv);
+    processCommandLine(argc, argv);
 
-        // Read it
-        Track track;
-        Parse::read(track, inputFilename, inputFormat);
+    // Read it
+    Track track;
+    Parse::read(track, inputFilename, inputFormat);
 
-        if (track.getName().empty()) {
-            track.setName(removeSuffix(Directory::basename(inputFilename)));
-        }
-
-        if (average > 0) {
-            track.average(average);
-        }
-
-        // Do some calculations
-        track.calculateSegmentGrade(100);
-        double climb = track.calculateClimb(10);
-        track.calculateVelocity(10);
-
-        if (!quiet) report(track);
-
-        if (doMask) {
-            track.mask(maskMinLon, maskMaxLon,
-                       maskMinLat, maskMaxLat);
-        }
-
-        if (doPeaks)     calculatePeaks(track);
-        if (doClimbs)    calculateClimbs(track);
-        if (doDifficult) calculateDifficult(track);
-        if (downsample > 0)  track.sample(downsample);
-
-        // Write the results, if desired
-        if (plotOutput) {
-            Gnuplot::Options opt;
-            opt.metric = metric;
-            Gnuplot::write(cout, track, opt);
-        } else if (outputFormat == Parse::FORMAT_KML) {
-            KML::write(cout, track, kmlOptions);
-        } else if (outputFormat == Parse::FORMAT_GPX) {
-            GPX::write(cout, track);
-        } else if (outputFormat == Parse::FORMAT_TEXT) {
-            Text::write(cout, track);
-        } else if (outputFormat == Parse::FORMAT_PNG) {
-            PNG::Options opt;
-            opt.metric = metric;
-            opt.climbs = doClimbs;
-            opt.difficult = doDifficult;
-            PNG::write(cout, track, opt);
-        } else if (outputFormat == Parse::FORMAT_JSON) {
-            JSON::Options opt;
-            opt.callback = jsonCallback;
-            JSON::write(cout, track, opt);
-        } else {
-            cerr << "Nothing to write" << endl;
-        }
-
-        return 0;
-
-    } catch (const std::exception & e) {
-        cerr << e.what() << endl;
-    } catch (...) {
-        cerr << "Unknown exception in main" << endl;
+    if (track.getName().empty()) {
+      track.setName(removeSuffix(Directory::basename(inputFilename)));
     }
 
-    usage();
-    return 1;
+    if (removeBurrs) {
+      track.removeBurrs();
+    }
+
+    if (average > 0) {
+      track.average(average);
+    }
+
+    // Do some calculations
+    track.calculateSegmentGrade(100);
+    double climb = track.calculateClimb(10);
+    track.calculateVelocity(10);
+
+    if (!quiet) report(track);
+
+    if (doMask) {
+      track.mask(maskMinLon, maskMaxLon, maskMinLat, maskMaxLat);
+    }
+
+    if (doPeaks)     calculatePeaks(track);
+    if (doClimbs)    calculateClimbs(track);
+    if (doDifficult) calculateDifficult(track);
+    if (downsample > 0)  track.sample(downsample);
+
+    // Write the results, if desired
+    if (plotOutput) {
+      Gnuplot::Options opt;
+      opt.metric = metric;
+      Gnuplot::write(cout, track, opt);
+    } else if (outputFormat == Parse::FORMAT_KML) {
+      KML::write(cout, track, kmlOptions);
+    } else if (outputFormat == Parse::FORMAT_GPX) {
+      GPX::write(cout, track);
+    } else if (outputFormat == Parse::FORMAT_TEXT) {
+      Text::write(cout, track);
+    } else if (outputFormat == Parse::FORMAT_PNG) {
+      PNG::Options opt;
+      opt.metric = metric;
+      opt.climbs = doClimbs;
+      opt.difficult = doDifficult;
+      PNG::write(cout, track, opt);
+    } else if (outputFormat == Parse::FORMAT_JSON) {
+      JSON::Options opt;
+      opt.callback = jsonCallback;
+      JSON::write(cout, track, opt);
+    } else {
+      cerr << "Nothing to write" << endl;
+    }
+
+    return 0;
+
+  } catch (const std::exception & e) {
+    cerr << e.what() << endl;
+  } catch (...) {
+    cerr << "Unknown exception in main" << endl;
+  }
+
+  usage();
+  return 1;
 }
