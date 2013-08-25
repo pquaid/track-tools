@@ -8,15 +8,18 @@ TSTOBJ := $(TSTSRC:.cc=.o)
 TSTBIN := $(TSTSRC:.cc=)
 
 LIB    := libtrack.a
+BIN    := track sameroute
 
 CXXFLAGS := -g -fPIC
 
 LDFLAGS += -L. -ltrack -lfit -lgd -LLIBDIR -L/usr/local/lib
 
 
-all: lib track sameroute
+all: lib bin
 
 lib: $(LIB)
+
+bin: $(BIN)
 
 $(LIB): $(LIBOBJ)
 #	libtool -static $(LIBOBJ) -o $(LIB)
@@ -29,5 +32,5 @@ sameroute: $(LIB) sameroute.o
 	$(CXX) sameroute.o -o sameroute $(LDFLAGS)
 
 clean:
-	-$(RM) $(LIBOBJ) $(TSTSRC:.cc=.o) $(TSTBIN) $(LIB) *~
+	-$(RM) $(LIBOBJ) $(TSTSRC:.cc=.o) $(TSTBIN) $(LIB) $(BIN) *~
 

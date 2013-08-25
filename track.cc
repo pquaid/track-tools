@@ -177,7 +177,7 @@ void Track::removeBurrs() {
 	break;
       }
 
-      const unreasonable_distance = 1000.0; // meters
+      const double unreasonable_distance = 1000.0; // meters
       const double distance_gap = (*this)[i].distance((*this)[i-1]);
       if (distance_gap > unreasonable_distance) {
 	if (i <= (size() / 2)) {
