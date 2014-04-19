@@ -16,23 +16,21 @@ double Track::Climb::getLength() const {
 }
 
 double Track::Climb::getClimb() const {
-  return (*track)[end].elevation - (*track)[start].elevation;
+  return (*track)[end].climb - (*track)[start].climb;
 }
 
 double Track::Climb::getDifficulty() const {
   return getGrade() * getGrade() * getLength();
 }
 
-
-
 const Point & Track::first() const {
   PRECONDITION(!empty());
-  return (*this)[0];
+  return *begin();
 }
 
 const Point & Track::last() const {
   PRECONDITION(!empty());
-  return (*this)[size()-1];
+  return *rbegin();
 }
 
 // Remove some of the entries to get down to 'samples'. At the moment
@@ -78,28 +76,26 @@ void Track::sample(int samples) {
 }
 
 void Track::average(int points) {
-
   PRECONDITION(points > 0);
 
   if (points >= size()) return;
   
   vector<Point> replacements;
 
-  for (int i = 0; i < points; i++) {
-
+  for (int i = 0; i < points; ++i) {
+    // For the desired point 'i', calculate the correspnding range [start,end]
+    // in the original range.
     int start = (((double) i) / points) * size();
     int end   = (((double) i + 1) / points) * size();
 
     POSTCONDITION(end <= size());
 
-    Point p;
-    p = at(start);
+    Point& p = at(start);
     p.seq = i;
 
     int64_t t = p.timestamp;
 
-    for (int j = start + 1; j < end; j++) {
-
+    for (int j = start + 1; j < end; ++j) {
       p.lat       += at(j).lat;
       p.lon       += at(j).lon;
       p.elevation += at(j).elevation;
@@ -113,7 +109,7 @@ void Track::average(int points) {
       t += at(j).timestamp;
     }
 
-    int count = end - start;
+    const int count = end - start;
     if (count > 1) {
       p.lat       /= count;
       p.lon       /= count;
@@ -133,25 +129,18 @@ void Track::average(int points) {
     replacements.push_back(p);
   }
 
-  clear();
-  assign(replacements.begin(), replacements.end());
+  swap(replacements);
 }
 
 // Remove points within the given rectangle
 void Track::mask(double minLon, double maxLon, double minLat, double maxLat) {
-
   int i = 0;
   while (i < size()) {
+    const Point & p = at(i);
 
-    Point & p = (*this)[i];
-
-    if ((p.lat <= minLat) ||
-	(p.lat >= maxLat) ||
-	(p.lon <= minLon) ||
-	(p.lon >= maxLon)) {
-
+    if (p.lat <= minLat || p.lat >= maxLat ||
+        p.lon <= minLon || p.lon >= maxLon) {
       i++;
-
     } else {
       erase(begin() + i);
     }
@@ -194,10 +183,8 @@ void Track::removeBurrs() {
 // Decay the elevation. This helps if you're using GPS elevation, which
 // is very noisy
 void Track::decayElevation(int samples) {
-
   double running;
-  for (int i = 0; i < size(); i++) {
-
+  for (int i = 0; i < size(); ++i) {
     if (i == 0) {
       running = (*this)[i].elevation;
     } else {
@@ -208,9 +195,7 @@ void Track::decayElevation(int samples) {
 }
 
 static bool matchesPattern(Track & track, int pos) {
-
   // The pattern is: three points increasing or decreasing.
-
   if (pos < 2) return false;
 
   if ((track[pos-2].elevation < track[pos-1].elevation) &&
@@ -230,23 +215,22 @@ static bool matchesPattern(Track & track, int pos) {
 // GPS can be noisy, calculating the grade over longer segments (100
 // meters, for example) gives more realistic results.
 void Track::calculateSegmentGrade(double segmentLength) {
-
   int segmentStartIndex = 0;
   double segmentStartElevation = 0;
   double segmentStartDistance = 0;
 
+  // To avoid watering down grades at the beginning or end of climbs, we
+  // define a 'window' in which we will start a new segment. If we see a
+  // consistent pattern of points within that window, or otherwise if we
+  // reach the end of the window, we end the segment.
   double windowStart = segmentLength * 0.9;
   double windowEnd   = segmentLength * 1.1;
 
   for (int i = 0; i < size(); i++) {
-
     if (i == 0) {
-
       segmentStartElevation = at(i).elevation;
       segmentStartDistance  = 0;
-
     } else {
-
       double deltaD = at(i).length - segmentStartDistance;
       if ((deltaD >= windowEnd) ||
 	  ((deltaD >= windowStart) && matchesPattern(*this, i))) {
@@ -256,7 +240,7 @@ void Track::calculateSegmentGrade(double segmentLength) {
 	double grade = (deltaE / deltaD) * 100;
 
 	// Fill in the points in this active segment
-	for (int j = segmentStartIndex; j < i; j++) {
+	for (int j = segmentStartIndex; j < i; ++j) {
 	  at(j).grade = grade;
 	}
 
@@ -275,17 +259,15 @@ void Track::calculateSegmentGrade(double segmentLength) {
     double grade = (deltaE / deltaD) * 100;
     if (deltaD == 0) grade = 0;
 
-    for (int i = segmentStartIndex; i < size(); i++) {
+    for (int i = segmentStartIndex; i < size(); ++i) {
       at(i).grade = grade;
     }
   }
 }
 
-// Set the velocity of each point. Since GPS is noisy, use a decaying
+// Set the velocity at each point. Since GPS is noisy, use a decaying
 // average.
-
 void Track::calculateVelocity(int samples) {
-
   if (empty()) return;
 
   time_t previous = at(0).timestamp;
@@ -294,7 +276,6 @@ void Track::calculateVelocity(int samples) {
   at(0).velocity = 0;
 
   for (int i = 1; i < size(); i++) {
-
     double distance = at(i).length - at(i-1).length;
     double diff = at(i).timestamp - previous;
 
@@ -310,19 +291,15 @@ void Track::calculateVelocity(int samples) {
 
 // Calculate the total climb, but ignore small variations below
 // a threshold.
-
 double Track::calculateClimb(double threshold) {
-
   double base = 0;
   double climb = 0;
 
   for (int i = 0; i < size(); i++) {
-
     double ele = at(i).elevation;
     if (i == 0) {
       base = ele;
     } else {
-
       if (ele > (base + threshold)) {
 	climb += ele - base;
 	base = ele;
@@ -340,12 +317,10 @@ double Track::calculateClimb(double threshold) {
 
 
 double Track::calculateMovingTime(double minVelocityMetersPerSec) const {
-
   double moving = 0;
   double stopped = 0;
 
   for (int i = 1; i < size(); i++) {
-    
     time_t now  = at(i).timestamp;
     time_t prev = at(i-1).timestamp;
     double dist = at(i).length - at(i-1).length;
@@ -365,7 +340,6 @@ double Track::calculateMovingTime(double minVelocityMetersPerSec) const {
 
 
 double Track::calculateTotalTime() const {
-
   if (empty()) {
     return 0;
   } else {
@@ -373,18 +347,15 @@ double Track::calculateTotalTime() const {
   }
 }
 
-
 // Return average speed in meters/sec
 double Track::calculateAverageSpeed() const {
   return getTotalDistance() / calculateTotalTime();
 }
 
-
 // Return moving speed in meters/sec
 double Track::calculateMovingSpeed() const {
   return getTotalDistance() / calculateMovingTime();
 }
-
 
 // Return total distance in meters
 double Track::getTotalDistance() const {
@@ -394,7 +365,6 @@ double Track::getTotalDistance() const {
     return last().length;
   }
 }
-
 
 time_t Track::getStartTime() const {
   if (empty()) {
@@ -406,7 +376,7 @@ time_t Track::getStartTime() const {
 
 time_t Track::getEndTime() const {
   if (empty()) {
-      return 0;
+    return 0;
   } else {
     return last().timestamp;
   }
@@ -434,11 +404,9 @@ double Track::getMinimumElevation() const {
   return min;
 }
 
-
 // Return an arbitrary number indicating the relative difficulty of
 // the track
 double Track::calculateDifficulty() const {
-
   double result;
   for (int i = 1; i < size(); i++) {
     double grade = at(i).grade;
@@ -450,35 +418,30 @@ double Track::calculateDifficulty() const {
   return result;
 }
 
-
 void Track::calculatePeaks(double range, double prom) {
-
   peaks.clear();
 
   // Identify any point with a prominence of at least 'prom' meters
   // in a range of at least 'range' meters.
-
   int sz = size();
 
   // Since we're scanning this vector a jillion times, creating a
   // raw copy is noticably faster.
-
   typedef Point* PointPtr;
   auto_ptr<PointPtr> pointHolder(new PointPtr[sz]);
-  Point ** pts = pointHolder.get();
-  for (int i = 0; i < sz; i++) {
+  Point** pts = pointHolder.get();
+  for (int i = 0; i < sz; ++i) {
     pts[i] = &(*this)[i];
   }
 
-  for (int i = 0; i < sz; i++) {
-
+  for (int i = 0; i < sz; ++i) {
     // Calculate the prominence and range of every single point
     double promPre = -1;
     double promPost = -1;
     double rangePre = -1;
     double rangePost = -1;
 
-    for (int j = i - 1; j >= 0; j--) {
+    for (int j = i - 1; j >= 0; --j) {
       double delta = pts[i]->elevation - pts[j]->elevation;
       if (delta <= 0) {
 	rangePre = pts[i]->length - pts[j]->length;
@@ -491,7 +454,7 @@ void Track::calculatePeaks(double range, double prom) {
 
     if (rangePre < 0) rangePre = pts[i]->length;
 
-    for (int j = i + 1; j < sz; j++) {
+    for (int j = i + 1; j < sz; ++j) {
       double delta = pts[i]->elevation - pts[j]->elevation;
       if (delta < 0) {
 	rangePost = pts[j]->length - pts[i]->length;
@@ -504,11 +467,8 @@ void Track::calculatePeaks(double range, double prom) {
 
     if (rangePost < 0) rangePost = pts[sz-1]->length - pts[i]->length;
 
-    if ((promPre >= prom) &&
-	(promPost >= prom) &&
-	(rangePre >= range) &&
-	(rangePost >= range)) {
-
+    if (promPre >= prom && promPost >= prom &&
+	rangePre >= range && rangePost >= range) {
       Peak p;
       p.index = i;
       p.prominence = std::min(promPre, promPost);
@@ -530,11 +490,8 @@ static double getGrade(const Point & start, const Point & end) {
 static void getBaseClimbs(const Track & points,
                           ClimbWork & climbs,
                           double minimumGrade) {
-
   for (int i = 0; i < points.size(); i++) {
-        
     if (points[i].grade >= minimumGrade) {
-
       int end;
 
       // Collect all contiguous points with a minimal grade
@@ -554,7 +511,6 @@ static void combineWithNext(ClimbWork & climbs,
                             double twixtRatio,
                             double gradeRatio,
                             double minimumGrade) {
-
   int i = 0;
   while (!climbs.empty() && (i < (climbs.size()-1))) {
 

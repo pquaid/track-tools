@@ -15,9 +15,8 @@ class Track;
 
 class Text {
 public:
-
-    static void read(std::istream & in, Track & track);
-    static void write(std::ostream & out, Track & track);
+  static void read(std::istream & in, Track & track);
+  static void write(std::ostream & out, const Track & track);
 };
 
 #endif

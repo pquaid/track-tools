@@ -1,4 +1,3 @@
-
 #include <iostream>
 
 class Track;
@@ -8,24 +7,22 @@ class Track;
 
 class Gnuplot {
 public:
+  struct Options {
+  Options()
+    : terminal("pngcairo size 800,300"), metric(false),
+      grade(true), elevation(true), climbs(true), difficult(true)
+      {}
 
-    struct Options {
+    const char * terminal;
+    bool metric;
+    bool grade;
+    bool elevation;
+    bool climbs;
+    bool difficult;
+  };
 
-        Options()
-        : terminal("pngcairo size 800,300"), metric(false),
-            grade(true), elevation(true), climbs(true), difficult(true)
-            {}
-
-        const char * terminal;
-        bool metric;
-        bool grade;
-        bool elevation;
-        bool climbs;
-        bool difficult;
-    };
-
-    // Create a gnuplot script, based on the track
-    static void write(std::ostream & out,
-                      Track & track,
-                      Options opt = Options());
+  // Create a gnuplot script, based on the track
+  static void write(std::ostream & out,
+                    Track & track,
+                    Options opt = Options());
 };
