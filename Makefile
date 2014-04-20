@@ -10,10 +10,9 @@ TSTBIN := $(TSTSRC:.cc=)
 LIB    := libtrack.a
 BIN    := track sameroute
 
-CXXFLAGS := -g -fPIC
+CXXFLAGS := -g -fPIC -std=c++11
 
-LDFLAGS += -L. -ltrack -lfit -lgd -LLIBDIR -L/usr/local/lib
-
+LDFLAGS += -L. -ltrack -lfit -lgd
 
 all: lib bin
 

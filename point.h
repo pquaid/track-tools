@@ -10,7 +10,7 @@
 
 struct Point {
 
-    static const double INVALID_TEMP = -1000;
+    static constexpr double INVALID_TEMP = -1000;
 
     Point();
 

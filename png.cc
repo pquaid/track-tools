@@ -369,8 +369,9 @@ static int calculateLeftBorder(Image & img) {
         if (rect[2] > right) right = rect[2];
     }
 
-    gdImageStringFT(0, rect, 0, img.font(), pt, 3.14159/2,
+    gdImageStringFT(nullptr, rect, 0, img.font(), pt, 3.14159/2,
                     0, 0, (char *) "elevation (meters)");
+
     POSTCONDITION(rect[4] < 0);
 
     return right + -(rect[4] - rect[0]) + 5 + 5;
@@ -385,7 +386,7 @@ static int calculateBottomBorder(Image & img) {
     char * text = const_cast<char*>("10");
     char * font = const_cast<char*>("helvetica");
 
-    gdImageStringFT(0, &rect[0], 0, font, pt, 0, 0, 0, text);
+    gdImageStringFT(nullptr, &rect[0], 0, font, pt, 0, 0, 0, text);
     POSTCONDITION(rect[5] < 0);
 
     int border = rect[1] - rect[5];
