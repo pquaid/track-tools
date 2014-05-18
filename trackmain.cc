@@ -1,21 +1,20 @@
-#include "track.h"
-#include "gpx.h"
-#include "fit.h"
-#include "kml.h"
+#include "dir.h"
 #include "document.h"
-#include "util.h"
+#include "fit.h"
 #include "gnuplot.h"
 #include "gpx.h"
-#include "png.h"
 #include "json.h"
-#include "text.h"
+#include "kml.h"
+#include "png.h"
 #include "parse.h"
-#include "dir.h"
+#include "text.h"
+#include "track.h"
+#include "util.h"
 
-#include <sys/time.h>
-#include <string.h>
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/time.h>
 
 #include <iostream>
 #include <fstream>

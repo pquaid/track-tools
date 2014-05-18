@@ -137,10 +137,10 @@ public:
   double getMinimumElevation() const;
 
   // Only non-empty if you've called calculatePeaks
-  const std::vector<Peak> & getPeaks() const { return peaks; }
+  const std::vector<Peak>& getPeaks() const { return peaks; }
 
   // Only non-empty if you've called calculateClimbs
-  const std::vector<Climb> & getClimbs() const { return climbs; }
+  const std::vector<Climb>& getClimbs() const { return climbs; }
 
  private:
   std::string name;

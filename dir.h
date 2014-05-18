@@ -21,9 +21,8 @@ public:
   static std::string basename(const std::string& path);
 
 private:
-
-  DIR * directory;
-  dirent * entry;
+  DIR* directory;
+  dirent* entry;
 
   std::string name;
   bool skip;

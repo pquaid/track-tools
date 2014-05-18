@@ -9,7 +9,6 @@ using namespace std;
 
 Directory::Directory(const char* dirname, bool skipDots)
     : skip(skipDots) {
-
   PRECONDITION(dirname != 0);
 
   directory = ::opendir(dirname);
