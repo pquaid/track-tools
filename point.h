@@ -8,7 +8,7 @@
 // A recorded point in a track; basically a time & lat/lon, with a
 // few other attached metrics.
 struct Point {
-  constexpr double INVALID_TEMP = -1000;
+  static constexpr double INVALID_TEMP = -1000;
 
   Point();
 
