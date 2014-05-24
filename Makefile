@@ -2,9 +2,11 @@
 LIBSRC := point.cc track.cc gpx.cc document.cc fit.cc png.cc json.cc \
 	  dir.cc kml.cc gnuplot.cc util.cc text.cc parse.cc
 LIBOBJ := $(LIBSRC:.cc=.o)
+LIBDEPS := $(LIBOBJ:.o=.d)
 
 TSTSRC := trackmain.cc sameroute.cc
 TSTOBJ := $(TSTSRC:.cc=.o)
+TSTDEPS := $(TSTOBJ:.o=.d)
 TSTBIN := $(TSTSRC:.cc=)
 
 LIB    := libtrack.a
@@ -31,5 +33,9 @@ sameroute: $(LIB) sameroute.o
 	$(CXX) sameroute.o -o sameroute $(LDFLAGS)
 
 clean:
-	-$(RM) $(LIBOBJ) $(TSTSRC:.cc=.o) $(TSTBIN) $(LIB) $(BIN) *~
+	-$(RM) $(LIBOBJ) $(LIBDEPS) $(TSTOBJ) $(TSTDEPS) $(TSTBIN) $(LIB) $(BIN) *~
 
+%.o: %.cc
+	$(CXX) -c -MMD -MP $(CXXFLAGS) $< -o $@
+
+-include $(LIBDEPS)

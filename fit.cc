@@ -21,7 +21,7 @@ time_t toTime(FIT_DATE_TIME s) {
 
 class Listener : public fit::RecordMesgListener {
 public:
-  Listener(vector<Point> & points_)
+  Listener(vector<Point>& points_)
       : sequence(0), points(points_)
   {}
 
@@ -62,14 +62,15 @@ public:
       current.atemp = temp;
     }
 
-    current.seq = sequence++;
+    current.seq = sequence;
+    ++sequence;
 
     points.push_back(current);
   }
 
 private:
   uint32_t sequence;
-  vector<Point> & points;
+  vector<Point>& points;
 };
 
 void Fit::read(istream& in, Track& points) {
@@ -80,7 +81,7 @@ void Fit::read(istream& in, Track& points) {
 
   try {
     messages.Run(in);
-  } catch (const fit::RuntimeException & e) {
+  } catch (const fit::RuntimeException& e) {
     throw FitException(e.what());
   }
 }

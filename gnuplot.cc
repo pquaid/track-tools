@@ -35,7 +35,7 @@ void Gnuplot::write(ostream& out, const Track& track, Options options) {
   int end = 0;
   double score = 0;
   track.mostDifficult(1000, start, end, score);
-  bool difficult = options.difficult && (start >= 0);
+  const bool difficult = options.difficult && (start >= 0);
 
   out << "set grid" << endl
       << "set y2tics" << endl
@@ -53,8 +53,8 @@ void Gnuplot::write(ostream& out, const Track& track, Options options) {
       << " graph 1, graph 1 behind"
       << " fillcolor rgb '#f0ffff' fillstyle solid 1.0" << endl;
 
-  const char * m_to_m = "*0.62137";
-  const char * m_to_f = "*3.2808";
+  const char* m_to_m = "*0.62137";
+  const char* m_to_f = "*3.2808";
   if (options.metric) {
     m_to_m = "";
     m_to_f = "";
@@ -104,13 +104,12 @@ void Gnuplot::write(ostream& out, const Track& track, Options options) {
   out << endl;
 
   // Now write all the data
-
   streamsize prev = out.precision();
   out.precision(8);
 
   if (options.grade) {
-    for (int i = 0; i < track.size(); i++) {
-      out << track[i].length << " " << track[i].grade << endl;
+    for (const Point& point : track) {
+      out << point.length << " " << point.grade << endl;
     }
     out << "e" << endl;
   }

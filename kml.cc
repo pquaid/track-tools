@@ -16,84 +16,77 @@ using namespace std;
 using namespace rapidxml;
 
 // Inefficient parsing of KML coordinate triplet
-static void parseCoords(const string & coordString,
-                        Track & track) {
+static void parseCoords(const string& coordString,
+                        Track& track) {
+  istringstream coords(coordString);
 
-    istringstream coords(coordString);
+  while (coords.good() && !coords.eof()) {
+    string coord;
+    coords >> coord;
+    if (coord.empty()) break;
 
-    while (coords.good() && !coords.eof()) {
-
-        string coord;
-        coords >> coord;
-        if (coord.empty()) break;
-
-        for (int i = 0; i < coord.size(); i++) {
-            if (coord[i] == ',') coord[i] = ' ';
-        }
-
-        istringstream c(coord);
-
-        Point p;
-
-        c >> p.lon >> p.lat >> p.elevation;
-
-        p.seq = track.size();
-
-        p.length = 0;
-        if (!track.empty()) {
-            p.length = track.last().length + p.distance(track.last());
-        }
-
-        track.push_back(p);
+    for (int i = 0; i < coord.size(); i++) {
+      if (coord[i] == ',') coord[i] = ' ';
     }
+
+    istringstream c(coord);
+    Point p;
+
+    c >> p.lon >> p.lat >> p.elevation;
+
+    p.seq = track.size();
+
+    p.length = 0;
+    if (!track.empty()) {
+      p.length = track.last().length + p.distance(track.last());
+    }
+
+    track.push_back(p);
+  }
 }
 
-static void processDoc(Document & doc, Track & track) {
+static void processDoc(Document& doc, Track& track) {
+  xml_node<>* kml = doc.getTop().first_node("kml");
+  if (kml == 0) {
+    throw KMLError("No <kml> element");
+  }
 
-    xml_node<> * kml = doc.getTop().first_node("kml");
-    if (kml == 0) {
-        throw KMLError("No <kml> element");
-    }
+  const char* containerName = "Folder";
+  const xml_node<>* container = kml->first_node(containerName);
+  if (container == 0) {
+    containerName = "Document";
+    container = kml->first_node(containerName);
+  }
 
-    const char * containerName = "Folder";
-    xml_node<> * container = kml->first_node(containerName);
-    if (container == 0) {
-        containerName = "Document";
-        container = kml->first_node(containerName);
-    }
+  if (container != 0) {
+    const xml_node<>* name = container->first_node("name");
+    track.setName(name->value());
+  }
 
-    if (container != 0) {
-        xml_node<> * name = container->first_node("name");
-        track.setName(name->value());
-    }
-
-    for ( ; container != 0; container = container->next_sibling(containerName)) {
-        xml_node<> * placemark = container->first_node("Placemark");
-        if (placemark != 0) {
-
-            xml_node<> * linestring = placemark->first_node("LineString");
-            if (linestring != 0) {
-                xml_node<> * coords = linestring->first_node("coordinates");
-                if (coords != 0) {
-                    parseCoords(coords->value(), track);
-                }
-            }
+  for ( ; container != 0; container = container->next_sibling(containerName)) {
+    const xml_node<>* placemark = container->first_node("Placemark");
+    if (placemark != 0) {
+      const xml_node<>* linestring = placemark->first_node("LineString");
+      if (linestring != 0) {
+        const xml_node<>* coords = linestring->first_node("coordinates");
+        if (coords != 0) {
+          parseCoords(coords->value(), track);
         }
+      }
     }
+  }
 }
 
-void KML::read(const string & filename, Track & track) {
-
-    Document doc;
-    doc.read(filename);
-    processDoc(doc, track);
+void KML::read(const string& filename, Track& track) {
+  Document doc;
+  doc.read(filename);
+  processDoc(doc, track);
 }
 
-void KML::read(istream & in, Track & track) {
-
-    Document doc;
-    doc.read(in);
-    processDoc(doc, track);
+void KML::read(istream& in, Track& track) {
+  Document doc;
+  doc.read(in);
+  processDoc(doc, track);
 }
 
 static void writePoint(ostream& out, const Point& point) {
@@ -120,7 +113,7 @@ static void writeSegment(ostream& out, const Track& track,
   out << "</coordinates></LineString></Placemark>" << endl;
 }
 
-void KML::write(ostream & out, Track & track, Options options) {
+void KML::write(ostream& out, const Track& track, Options options) {
   streamsize precision = out.precision();
 
   string name(track.getName());
@@ -139,9 +132,12 @@ void KML::write(ostream & out, Track & track, Options options) {
   out << buffer << "</color><width>" << options.width << "</width>" << endl
       << "</LineStyle></Style>" << endl;
   out << "<Style id=\"ClimbStyle\"><LineStyle>" << endl
-      << "<color>600000ff</color><width>2</width>" << endl
+      << "<color>ff0000bb</color><width>2</width>" << endl
       << "</LineStyle></Style>" << endl;
 
+  /*
+  // TODO: To activate this, I need to ensure that Track::sample() properly
+  // adjusts climbs and peaks, which refer to points by index.
   std::vector<Track::Climb> climbs = track.getClimbs();
   int last_point = 0;
   for (const Track::Climb& climb : climbs) {
@@ -156,9 +152,10 @@ void KML::write(ostream & out, Track & track, Options options) {
   if (last_point <= (track.size() - 1)) {
     writeSegment(out, track, last_point, track.size() - 1, "#FlatStyle");
   }
+  */
+  writeSegment(out, track, 0, track.size() - 1, "#FlatStyle");
 
   if (options.startAndEnd && !track.empty()) {
-
     out << "<Placemark><name>Start</name>" << endl
 	<< "<Style><IconStyle><scale>1.3</scale><Icon>" << endl
 	<< "<href>http://maps.google.com/mapfiles/kml/paddle/grn-circle.png</href>"

@@ -15,30 +15,29 @@
 // Methods for reading and writing KML files
 class KML {
 public:
+  struct Options {
+   Options() : startAndEnd(true), width(2), color(0xbb0000), opacity(0xff)
+    {}
 
-    struct Options {
-    Options() : startAndEnd(true), width(1), color(0x0000ff), opacity(0xff)
-            {}
+    bool startAndEnd; // add start/end icons
+    double width;     // width of the line
+    uint32_t color;   // color, as bgr (eg 0x0000ff == red)
+    uint32_t opacity; // alpha of line, from 0 (transparent) to 255 (opaque)
+  };
 
-        bool startAndEnd; // add start/end icons
-        double width;     // width of the line
-        uint32_t color;   // color, as bgr (eg 0x0000ff == red)
-        uint32_t opacity; // alpha of line, from 0 (transparent) to 255 (opaque)
-    };
+  static void read(std::istream& in, Track& out);
+  static void read(const std::string& filename, Track& out);
 
-    static void read(std::istream & in, Track & out);
-    static void read(const std::string & filename, Track & out);
-
-    static void write(std::ostream & out,
-                      Track & track,
-                      Options options = Options());
+  static void write(std::ostream& out,
+                    const Track& track,
+                    Options options = Options());
 };
 
 class KMLError : public Exception {
 public:
-   KMLError(const std::string & msg)
-       : Exception("Error parsing KML: " + msg)
-    {}
+  KMLError(const std::string& msg)
+      : Exception("Error parsing KML: " + msg)
+  {}
 };
 
 #endif

@@ -45,7 +45,6 @@ void Track::sample(int samples) {
 
   int i = 0;
   while (i < size()) {
-
     i++; // skip one entry;
     int end = i + each - 1;
     if (end >= size()) end = size() - 1;

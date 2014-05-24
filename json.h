@@ -8,15 +8,13 @@ class Track;
 
 class JSON {
 public:
+  struct Options {
+    std::string callback;
+  };
 
-    struct Options {
-        std::string callback;
-    };
-
-    static void write(std::ostream & out,
-                      Track & track,
-                      Options option = Options());
-
+  static void write(std::ostream& out,
+                    const Track& track,
+                    Options option = Options());
 };
 
 #endif

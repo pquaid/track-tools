@@ -14,7 +14,7 @@ using namespace rapidxml;
 static double toDouble(const char* val) {
   char* end = 0;
   const double d = strtod(val, &end);
-  if ((end == val) || (end == 0) || (*end != '\0')) {
+  if (end == val || end == 0 || *end != '\0') {
     throw GPXError("Unable to convert numeric value: " + string(val));
   }
   return d;
@@ -84,7 +84,6 @@ static void processDoc(const Document& doc, Track& points) {
         if (ts != 0) {
           struct tm time;
           strptime(ts->value(), "%Y-%m-%dT%H:%M:%S.000Z", &time);
-
           current.timestamp = mktime(&time);
         }
 

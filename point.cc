@@ -4,7 +4,8 @@
 
 using namespace std;
 
-#define pi 3.14159265358979323846
+const double pi = 3.14159265358979323846;
+const double kRadiusOfEarthInMeters = 6371000;
 
 static double deg2rad(double deg) {
   return (deg * pi / 180);
@@ -20,13 +21,13 @@ Point::Point()
 {}
 
 double Point::distance(const Point & other) const {
-  double dlon = deg2rad(other.lon - lon);
-  double dlat = deg2rad(other.lat - lat);
+  const double dlon = deg2rad(other.lon - lon);
+  const double dlat = deg2rad(other.lat - lat);
 
   double a = pow(sin(dlat / 2), 2) + cos(deg2rad(lat)) *
       cos(deg2rad(other.lat)) *
       pow(sin(dlon / 2), 2);
-  return 2 * 6371000 * asin(sqrt(a));
+  return 2 * kRadiusOfEarthInMeters * asin(sqrt(a));
 }
 
 bool Point::operator< (const Point & p) const {
