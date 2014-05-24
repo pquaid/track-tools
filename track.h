@@ -37,7 +37,6 @@ public:
     int end;
   };
 
-
   Track() {}
 
   void setName(const std::string & n) { name = n; }
@@ -130,7 +129,8 @@ public:
   // Find the most 'difficult' section of 'meters' length, returning
   // the results in 'start' and 'end'. Difficult, in this context, is
   // measured with the same arbitrary algorithm as 'calculateDifficulty'
-  void mostDifficult(int meters, int & start, int & end, double & score);
+  void mostDifficult(int meters, int & start, int & end,
+                     double & score) const;
 
   double getMaximumElevation() const;
   double getMinimumElevation() const;
@@ -141,8 +141,7 @@ public:
   // Only non-empty if you've called calculateClimbs
   const std::vector<Climb> & getClimbs() const { return climbs; }
 
-private:
-
+ private:
   std::string name;
   std::vector<Peak> peaks;
   std::vector<Climb> climbs;

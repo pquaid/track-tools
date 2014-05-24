@@ -7,7 +7,8 @@
 
 using namespace std;
 
-Directory::Directory(const char * dirname, bool skipDots) : skip(skipDots) {
+Directory::Directory(const char* dirname, const bool skipDots)
+    : skip(skipDots) {
   PRECONDITION(dirname != 0);
 
   directory = ::opendir(dirname);
@@ -19,18 +20,18 @@ Directory::Directory(const char * dirname, bool skipDots) : skip(skipDots) {
 bool Directory::next() {
   while (true) {
     entry = readdir(directory);
-    if (entry == 0) {
+    if (entry == nullptr) {
       return false;
     } else {
       name = entry->d_name;
-      if (skip && ((name == "..")||(name == "."))) continue;
+      if (skip && (name == ".." || name == ".")) continue;
       return true;
     }
   }
 }
 
-std::string Directory::createPath(const std::string & path,
-                                  const std::string & filename) {
+std::string Directory::createPath(const std::string& path,
+                                  const std::string& filename) {
   if (!path.empty() && (path[path.size()-1] != '/')) {
     return path + "/" + filename;
   } else {
@@ -38,9 +39,10 @@ std::string Directory::createPath(const std::string & path,
   }
 }
 
-string Directory::basename(const string & str) {
+
+string Directory::basename(const string& str) {
   const string::size_type p = str.find_last_of('/');
-  if ((p != string::npos) && (p < (str.size()-1))) {
+  if (p != string::npos && p < (str.size()-1)) {
     return str.substr(p+1);
   } else {
     return str;

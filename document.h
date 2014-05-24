@@ -15,10 +15,10 @@ public:
     delete [] buffer;
   }
 
-  void read(const std::string & filename);
-  void read(std::istream & in);
+  void read(const std::string& filename);
+  void read(std::istream& in);
 
-  const rapidxml::xml_document<> & getTop() const { return doc; }
+  const rapidxml::xml_document<>& getTop() const { return doc; }
 
 private:
   rapidxml::xml_document<> doc;
@@ -27,8 +27,8 @@ private:
 
 class DocumentError : public Exception {
 public:
-  DocumentError(const std::string & msg)
-    : Exception("Error parsing XML: " + msg) {}
+  DocumentError(const std::string& msg)
+      : Exception("Error parsing XML: " + msg) {}
 };
 
 #endif

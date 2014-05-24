@@ -23,12 +23,12 @@ double Track::Climb::getDifficulty() const {
   return getGrade() * getGrade() * getLength();
 }
 
-const Point & Track::first() const {
+const Point& Track::first() const {
   PRECONDITION(!empty());
   return *begin();
 }
 
-const Point & Track::last() const {
+const Point& Track::last() const {
   PRECONDITION(!empty());
   return *rbegin();
 }
@@ -37,27 +37,7 @@ const Point & Track::last() const {
 // this is just approximate; due to integer math, it gets close to
 // 'samples', but not exact
 void Track::sample(int samples) {
-
   if (samples >= size()) return;
-
-  /* This is slower, as written, and doesn't produce a visibly better
-     sample.
-
-     // Sample based on distance
-    double each = getTotalDistance() / (samples-1);
-    double pos = 0;
-
-    int i = 0;
-    while (i < size()-1) {
-
-        if (at(i).length < pos) {
-            erase(begin() + i);
-        } else {
-            pos += each;
-            i++;
-        }
-    }
-    */
 
   // Sample every n'th point
   int each = size() / samples;
@@ -83,7 +63,7 @@ void Track::average(int points) {
   vector<Point> replacements;
 
   for (int i = 0; i < points; ++i) {
-    // For the desired point 'i', calculate the correspnding range [start,end]
+    // For the desired point 'i', calculate the corresponding range [start,end]
     // in the original range.
     int start = (((double) i) / points) * size();
     int end   = (((double) i + 1) / points) * size();
@@ -125,7 +105,6 @@ void Track::average(int points) {
     }
 
     p.grade = 0;
-
     replacements.push_back(p);
   }
 
@@ -136,7 +115,7 @@ void Track::average(int points) {
 void Track::mask(double minLon, double maxLon, double minLat, double maxLat) {
   int i = 0;
   while (i < size()) {
-    const Point & p = at(i);
+    const Point& p = at(i);
 
     if (p.lat <= minLat || p.lat >= maxLat ||
         p.lon <= minLon || p.lon >= maxLon) {
@@ -156,6 +135,7 @@ void Track::removeBurrs() {
     for (int i = 1; i < size(); i++) {
       const time_t unreasonable_time = 4 * 60 * 60; // 4 hours
       const time_t time_gap = (*this)[i].timestamp - (*this)[i-1].timestamp;
+
       if (time_gap > unreasonable_time) {
 	if (i <= (size() / 2)) {
 	  erase(begin(), begin() + i);
@@ -163,17 +143,6 @@ void Track::removeBurrs() {
 	  erase(begin() + i, end());
 	}
 	// Only deal with one burr at a time
-	break;
-      }
-
-      const double unreasonable_distance = 1000.0; // meters
-      const double distance_gap = (*this)[i].distance((*this)[i-1]);
-      if (distance_gap > unreasonable_distance) {
-	if (i <= (size() / 2)) {
-	  erase(begin(), begin() + (i-1));
-	} else {
-	  erase(begin() + i, end());
-	}
 	break;
       }
     }
@@ -194,7 +163,7 @@ void Track::decayElevation(int samples) {
   }
 }
 
-static bool matchesPattern(Track & track, int pos) {
+static bool matchesPattern(const Track& track, int pos) {
   // The pattern is: three points increasing or decreasing.
   if (pos < 2) return false;
 
@@ -234,7 +203,6 @@ void Track::calculateSegmentGrade(double segmentLength) {
       double deltaD = at(i).length - segmentStartDistance;
       if ((deltaD >= windowEnd) ||
 	  ((deltaD >= windowStart) && matchesPattern(*this, i))) {
-
 	// Calculate the grade
 	double deltaE = at(i).elevation - segmentStartElevation;
 	double grade = (deltaE / deltaD) * 100;
@@ -481,14 +449,14 @@ void Track::calculatePeaks(double range, double prom) {
 
 typedef vector<pair<Point,Point> > ClimbWork;
 
-static double getGrade(const Point & start, const Point & end) {
+static double getGrade(const Point& start, const Point& end) {
   double ele = end.elevation - start.elevation;
   double len = end.length - start.length;
   return (ele / len) * 100.0;
 }
 
-static void getBaseClimbs(const Track & points,
-                          ClimbWork & climbs,
+static void getBaseClimbs(const Track& points,
+                          ClimbWork& climbs,
                           double minimumGrade) {
   for (int i = 0; i < points.size(); i++) {
     if (points[i].grade >= minimumGrade) {
@@ -507,13 +475,12 @@ static void getBaseClimbs(const Track & points,
   }
 }
 
-static void combineWithNext(ClimbWork & climbs,
+static void combineWithNext(ClimbWork& climbs,
                             double twixtRatio,
                             double gradeRatio,
                             double minimumGrade) {
   int i = 0;
   while (!climbs.empty() && (i < (climbs.size()-1))) {
-
     double length = climbs[i].second.length - climbs[i].first.length;
     double toNext = climbs[i+1].first.length - climbs[i].second.length;
 
@@ -532,25 +499,21 @@ static void combineWithNext(ClimbWork & climbs,
 	(totalGrade >= (startGrade * gradeRatio)) &&
 	(totalGrade >= minimumGrade) &&
 	(climbs[i].second.elevation < climbs[i+1].second.elevation)) {
-
       // combine 'em
       climbs[i+1].first = climbs[i].first;
       climbs.erase(climbs.begin() + i);
-
     } else {
       i++;
     }
   }
 }
 
-static void combineWithPrevious(ClimbWork & climbs,
+static void combineWithPrevious(ClimbWork& climbs,
                                 double twixtRatio,
                                 double gradeRatio,
                                 double minimumGrade) {
-
   int i = climbs.size()-1;
   while (i > 0) {
-
     double length = climbs[i].second.length - climbs[i].first.length;
     double toNext = climbs[i].first.length - climbs[i-1].second.length;
     
@@ -562,7 +525,6 @@ static void combineWithPrevious(ClimbWork & climbs,
 	(totalGrade >= (startGrade * gradeRatio)) &&
 	(totalGrade >= minimumGrade) &&
 	(climbs[i-1].first.elevation < climbs[i].first.elevation)) {
-
       // combine 'em
       climbs[i-1].second = climbs[i].second;
       climbs.erase(climbs.begin() + i);
@@ -571,34 +533,31 @@ static void combineWithPrevious(ClimbWork & climbs,
   }
 }
 
-static void removeInsignificant(ClimbWork & climbs,
+static void removeInsignificant(ClimbWork& climbs,
                                 double significantLength,
                                 double significantGrade,
                                 double significantClimb,
                                 double minimumLength,
                                 double minimumGrade) {
-
   // Remove climbs that are not "significant". It has to be steep,
   // long or have a lot of climb. And it has to have (at least) a
   // minimal length and grade.
-
   int i = 0;
   while (i < climbs.size()) {
-
     double steep = getGrade(climbs[i].first, climbs[i].second);
     double length = climbs[i].second.length - climbs[i].first.length;
     double ele = climbs[i].second.elevation - climbs[i].first.elevation;
 
     // Any of these criteria...
     bool significant =
-      (length > significantLength) ||
-      (steep > significantGrade) ||
-      (ele > significantClimb);
+        (length > significantLength) ||
+        (steep > significantGrade) ||
+        (ele > significantClimb);
     
     // And all of the minimums...
     significant = significant &&
-      (length >= minimumLength) &&
-      (steep >= minimumGrade);
+        (length >= minimumLength) &&
+        (steep >= minimumGrade);
 
     if (significant) {
       i++;
@@ -615,18 +574,14 @@ void Track::calculateClimbs(double minimumGrade,
                             double significantClimb,
                             double minimumLength,
                             double twixtRatio) {
-
   climbs.clear();
 
   // We will collect climbs in a local structure first
   vector<pair<Point,Point> > local;
-
   getBaseClimbs(*this, local, minimumGrade);
 
   // Combine nearby sections
-
   while (true) {
-
     int lengthPre = local.size();
         
     combineWithNext(local, twixtRatio, gradeRatio, minimumGrade);
@@ -642,13 +597,13 @@ void Track::calculateClimbs(double minimumGrade,
 		      minimumLength,
 		      minimumGrade);
 
-  for (int i = 0; i < local.size(); i++) {
-    climbs.push_back(Climb(this, local[i].first.seq, local[i].second.seq));
+  for (const auto& it : local) {
+    climbs.push_back(Climb(this, it.first.seq, it.second.seq));
   }
 }
 
-void Track::mostDifficult(int meters, int & start, int & end, double & score) {
-
+void Track::mostDifficult(int meters, int& start, int& end,
+                          double& score) const {
   // Find the most difficult stretch of 'meters'.
 
   // Here's what I'll do: for each point, create a 'pain' number
@@ -669,7 +624,6 @@ void Track::mostDifficult(int meters, int & start, int & end, double & score) {
   pain.get()[0] = 0;
 
   for (int i = 1; i < size(); i++) {
-
     double ele = at(i).elevation - at(i-1).elevation;
     double length = at(i).length - at(i-1).length;
     double grade = 100 * (ele / length);
@@ -688,7 +642,6 @@ void Track::mostDifficult(int meters, int & start, int & end, double & score) {
   }
 
   // Now just find the most difficult 'meters' span
-
   score = 0;
   start = -1;
   end = -1;
@@ -697,7 +650,6 @@ void Track::mostDifficult(int meters, int & start, int & end, double & score) {
   double total = 0;
 
   for (int i = 1; i < size(); i++) {
-
     total += pain.get()[i];
     while ((at(i).length - at(s).length) > meters) {
       total -= pain.get()[s];

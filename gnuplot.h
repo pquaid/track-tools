@@ -22,7 +22,7 @@ public:
   };
 
   // Create a gnuplot script, based on the track
-  static void write(std::ostream & out,
-                    Track & track,
+  static void write(std::ostream& out,
+                    const Track& track,
                     Options opt = Options());
 };

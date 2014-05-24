@@ -27,7 +27,7 @@ static string axes(bool metric) {
   return string(xaxis(metric)) + ":" + yaxis(metric);
 }
 
-void Gnuplot::write(ostream & out, Track & track, Options options) {
+void Gnuplot::write(ostream& out, const Track& track, Options options) {
   PRECONDITION(options.terminal != 0);
 
   // Is there a 'difficult' section of the ride?
@@ -84,7 +84,7 @@ void Gnuplot::write(ostream & out, Track & track, Options options) {
 
   // Highlight each of the climbs
   if (options.climbs && !track.getClimbs().empty()) {
-    for (int i = 0; i < track.getClimbs().size(); i++) {
+    for (int i = 0; i < track.getClimbs().size(); ++i) {
       out << (plotted ? "," : "");
       plotted = true;
 

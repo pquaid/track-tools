@@ -96,7 +96,29 @@ void KML::read(istream & in, Track & track) {
     processDoc(doc, track);
 }
 
+static void writePoint(ostream& out, const Point& point) {
+  out.precision(12);
+  out << point.lon << "," << point.lat << ",";
+  out.precision(6);
+  out << point.elevation << endl;
+}
 
+static void writeSegment(ostream& out, const Track& track,
+			 int start, int end, const string& style) {
+  out << "<Placemark>" << endl
+      << "<styleUrl>" << style << "</styleUrl>" << endl
+      << "<LineString>" << endl
+      << "<extrude>false</extrude>" << endl
+      << "<tessellate>true</tessellate>" << endl
+      << "<altitudeMode>clampToGround</altitudeMode>" << endl
+      << "<coordinates>" << endl;
+
+  for (int i = start; i <= end; ++i) {
+    writePoint(out, track[i]);
+  }
+
+  out << "</coordinates></LineString></Placemark>" << endl;
+}
 
 void KML::write(ostream & out, Track & track, Options options) {
   streamsize precision = out.precision();
@@ -108,63 +130,63 @@ void KML::write(ostream & out, Track & track, Options options) {
       << "<kml xmlns=\"http://earth.google.com/kml/2.2\">" << endl
       << "<Document>" << endl
       << "<name>" << name << "</name>" << endl
-      << "<Placemark>" << endl
-      << "<name>" << name << "</name>" << endl
-      << "<Style><LineStyle>" << endl
+      << "<Style id=\"FlatStyle\"><LineStyle>" << endl
       << "<color>";
 
   char buffer[100];
-  snprintf(buffer, sizeof(buffer), "%02x%06x",
-           options.opacity, options.color);
+  snprintf(buffer, sizeof(buffer), "%02x%06x", options.opacity, options.color);
 
   out << buffer << "</color><width>" << options.width << "</width>" << endl
-      << "</LineStyle></Style>" << endl
-      << "<LineString>" << endl
-      << "<extrude>false</extrude>" << endl
-      << "<tessellate>true</tessellate>" << endl
-      << "<altitudeMode>clampToGround</altitudeMode>" << endl
-      << "<coordinates>" << endl;
+      << "</LineStyle></Style>" << endl;
+  out << "<Style id=\"ClimbStyle\"><LineStyle>" << endl
+      << "<color>600000ff</color><width>2</width>" << endl
+      << "</LineStyle></Style>" << endl;
 
-  for (int i = 0; i < track.size(); i++) {
-    out.precision(12);
-    out << track[i].lon << "," << track[i].lat << ",";
-    out.precision(6);
-    out << track[i].elevation << endl;
+  std::vector<Track::Climb> climbs = track.getClimbs();
+  int last_point = 0;
+  for (const Track::Climb& climb : climbs) {
+    if (climb.getStartIndex() > last_point) {
+      writeSegment(out, track, last_point, climb.getStartIndex(),
+		   "#FlatStyle");
+    }
+    writeSegment(out, track, climb.getStartIndex(), climb.getEndIndex(),
+		 "#ClimbStyle");
+    last_point = climb.getEndIndex();
+  }
+  if (last_point <= (track.size() - 1)) {
+    writeSegment(out, track, last_point, track.size() - 1, "#FlatStyle");
   }
 
-
-  out << "</coordinates></LineString></Placemark>" << endl;
-
   if (options.startAndEnd && !track.empty()) {
+
     out << "<Placemark><name>Start</name>" << endl
-        << "<Style><IconStyle><scale>1.3</scale><Icon>" << endl
-        << "<href>http://maps.google.com/mapfiles/kml/paddle/grn-circle.png</href>"
-        << "</Icon>" << endl
-        << "<hotSpot yunits=\"fraction\" y=\"0.0\" xunits=\"fraction\" x=\"0.5\"/>" << endl
-        << "</IconStyle></Style>" << endl
-        << "<Point><coordinates>";
+	<< "<Style><IconStyle><scale>1.3</scale><Icon>" << endl
+	<< "<href>http://maps.google.com/mapfiles/kml/paddle/grn-circle.png</href>"
+	<< "</Icon>" << endl
+	<< "<hotSpot yunits=\"fraction\" y=\"0.0\" xunits=\"fraction\" x=\"0.5\"/>" << endl
+	<< "</IconStyle></Style>" << endl
+	<< "<Point><coordinates>";
     out.precision(12);
     out << track.first().lon << "," << track.first().lat << ",";
     out.precision(6);
     out << track.first().elevation
-        << "</coordinates></Point></Placemark>" << endl;
+	<< "</coordinates></Point></Placemark>" << endl;
         
     out << "<Placemark><name>End</name>" << endl
-        << "<Style><IconStyle><scale>1.3</scale><Icon>" << endl
-        << "<href>http://maps.google.com/mapfiles/kml/paddle/red-circle.png</href>"
-        << "</Icon>" << endl
-        << "<hotSpot yunits=\"fraction\" y=\"0.0\" xunits=\"fraction\" x=\"0.5\"/>" << endl
-        << "</IconStyle></Style>" << endl
-        << "<Point><coordinates>";
+	<< "<Style><IconStyle><scale>1.3</scale><Icon>" << endl
+	<< "<href>http://maps.google.com/mapfiles/kml/paddle/red-circle.png</href>"
+	<< "</Icon>" << endl
+	<< "<hotSpot yunits=\"fraction\" y=\"0.0\" xunits=\"fraction\" x=\"0.5\"/>" << endl
+	<< "</IconStyle></Style>" << endl
+	<< "<Point><coordinates>";
     out.precision(12);
     out << track.last().lon << "," << track.last().lat << ",";
     out.precision(6);
     out << track.last().elevation
-        << "</coordinates></Point></Placemark>" << endl;
+	<< "</coordinates></Point></Placemark>" << endl;
   }
 
-  out << "</Document>" << endl
-      << "</kml>" << endl;
+  out << "</Document>" << endl << "</kml>" << endl;
 
   out.precision(precision);
 }
