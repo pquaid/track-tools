@@ -11,6 +11,8 @@
 
 using namespace std;
 
+namespace {
+
 double toDegree(int32_t semicircles) {
   return (semicircles * -180.0) / (1<<31);
 }
@@ -18,6 +20,8 @@ double toDegree(int32_t semicircles) {
 time_t toTime(FIT_DATE_TIME s) {
   return s + 631065600;
 }
+
+}  // unnamed namespace
 
 class Listener : public fit::RecordMesgListener {
 public:

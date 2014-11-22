@@ -1,8 +1,8 @@
 #if !defined FIT_H
 #define      FIT_H
 
-#include <vector>
 #include <iosfwd>
+#include <vector>
 
 #include "exception.h"
 

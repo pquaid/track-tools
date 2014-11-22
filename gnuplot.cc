@@ -28,7 +28,7 @@ static string axes(bool metric) {
 }
 
 void Gnuplot::write(ostream& out, const Track& track, Options options) {
-  PRECONDITION(options.terminal != 0);
+  PRECONDITION(!options.terminal.empty());
 
   // Is there a 'difficult' section of the ride?
   int start = 0;

@@ -1,15 +1,15 @@
-#include "gpx.h"
 #include "document.h"
+#include "gpx.h"
 #include "track.h"
 
-#include <vector>
 #include <string>
+#include <vector>
 
-#include "time.h"
 #include "string.h"
+#include "time.h"
 
-using namespace std;
 using namespace rapidxml;
+using namespace std;
 
 static double toDouble(const char* val) {
   char* end = 0;
@@ -42,8 +42,6 @@ private:
 };
 
 static void processDoc(const Document& doc, Track& points) {
-  string trackName;
-
   const xml_node<>* trk = doc.getTop().first_node()->first_node("trk");
   if (trk == 0) throw GPXError("No <trk> element");
 

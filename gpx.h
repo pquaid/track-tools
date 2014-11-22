@@ -1,8 +1,8 @@
 #if !defined GPX_H
 #define      GPX_H
 
-#include <string>
 #include <iosfwd>
+#include <string>
 
 #include "exception.h"
 

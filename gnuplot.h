@@ -1,8 +1,9 @@
 #include <iostream>
+#include <string>
 
 class Track;
 
-// Methods for generating a gnuplot script, creating an
+// Methods for generating a gnuplot script for creating an
 // elevation profile
 
 class Gnuplot {
@@ -13,7 +14,7 @@ public:
       grade(true), elevation(true), climbs(true), difficult(true)
       {}
 
-    const char * terminal;
+    std::string terminal;
     bool metric;
     bool grade;
     bool elevation;

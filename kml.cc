@@ -7,6 +7,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "document.h"
 #include "track.h"
@@ -15,8 +16,27 @@
 using namespace std;
 using namespace rapidxml;
 
-// Inefficient parsing of KML coordinate triplet
+// Parse a single "longitude latitude elevation" triplet
+static void parseCoord(const string& coord, const time_t ts, Track& track) {
+  istringstream c(coord);
+  Point p;
+
+  c >> p.lon >> p.lat >> p.elevation;
+
+  p.seq = track.size();
+
+  p.length = 0;
+  if (!track.empty()) {
+    p.length = track.last().length + p.distance(track.last());
+  }
+
+  p.timestamp = ts;
+  track.push_back(p);
+}
+
+// Inefficient parsing of a series of long,lat,elevation triplets
 static void parseCoords(const string& coordString,
+                        const time_t timestamp,
                         Track& track) {
   istringstream coords(coordString);
 
@@ -29,20 +49,33 @@ static void parseCoords(const string& coordString,
       if (coord[i] == ',') coord[i] = ' ';
     }
 
-    istringstream c(coord);
-    Point p;
-
-    c >> p.lon >> p.lat >> p.elevation;
-
-    p.seq = track.size();
-
-    p.length = 0;
-    if (!track.empty()) {
-      p.length = track.last().length + p.distance(track.last());
-    }
-
-    track.push_back(p);
+    parseCoord(coord, timestamp, track);
   }
+}
+
+// Surely there's a strptime format suited for this, including the
+// fractional seconds? I didn't see one, hence the following.
+static time_t parseTimestamp(const char* timestamp) {
+  struct tm time;
+  time.tm_wday = 0;
+  time.tm_yday = 0;
+  time.tm_isdst = 0;
+
+  float seconds = 0;
+
+  const int result = sscanf(timestamp, "%d-%d-%dT%d:%d:%fZ",
+                            &time.tm_year, &time.tm_mon, &time.tm_mday,
+                            &time.tm_hour, &time.tm_min, &seconds);
+  if (result != 6) {
+    throw KMLError("Invalid timestamp: '" + string(timestamp) + "'");
+  }
+
+  time.tm_year -= 1900;
+  --time.tm_mon;
+  --time.tm_hour;
+  time.tm_sec = roundf(seconds);
+
+  return mktime(&time);
 }
 
 static void processDoc(Document& doc, Track& track) {
@@ -60,17 +93,44 @@ static void processDoc(Document& doc, Track& track) {
 
   if (container != 0) {
     const xml_node<>* name = container->first_node("name");
-    track.setName(name->value());
+    if (name != nullptr) {
+      track.setName(name->value());
+    }
   }
 
-  for ( ; container != 0; container = container->next_sibling(containerName)) {
-    const xml_node<>* placemark = container->first_node("Placemark");
-    if (placemark != 0) {
+  for ( ;
+        container != 0;
+        container = container->next_sibling(containerName)) {
+    for (const auto* placemark = container->first_node("Placemark");
+         placemark != nullptr;
+         placemark = placemark->next_sibling("Placemark")) {
       const xml_node<>* linestring = placemark->first_node("LineString");
+
       if (linestring != 0) {
         const xml_node<>* coords = linestring->first_node("coordinates");
         if (coords != 0) {
-          parseCoords(coords->value(), track);
+          parseCoords(coords->value(), 0, track);
+        }
+      } else {
+        // There was no LineString. Maybe there's a gx:MultiTrack?
+        const xml_node<>* multitrack = placemark->first_node("gx:MultiTrack");
+
+        if (multitrack != nullptr) {
+          for (const auto* gx_track = multitrack->first_node("gx:Track");
+               gx_track != nullptr;
+               gx_track = gx_track->next_sibling("gx:Track")) {
+
+            time_t last_timestamp = 0;
+            for (auto* node = gx_track->first_node();
+                 node != nullptr;
+                 node = node->next_sibling()) {
+              if (string("when") == node->name()) {
+                last_timestamp = parseTimestamp(node->value());
+              } else if (string("gx:coord") == node->name()) {
+                parseCoord(node->value(), last_timestamp, track);
+              }
+            }
+          }
         }
       }
     }
