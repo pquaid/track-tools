@@ -1,177 +1,214 @@
 /**********************************************************************
 
+A work in progress.
+
 This is an attempt to identify similar routes. As it stands, it just
 takes the points from one track, one by one, and finds the nearest
 point in another track. Among other things, it doesn't concern itself
 with ordering.
 
-This is a pretty slow method, being O(n^2) with the number of points.
-The good news is that you can abort the search with regard to a single
-point if you find a close-enough point.  And you can abort the whole
-comparison if you don't find a point very close at all.
+This is a pretty slow method, being O(n^2) with the number of tracks,
+then O(n^2) with the number of points. The good news is that you can abort
+the comparison with regard to a single point if you find a close-enough point.
+And you can abort the whole comparison if you don't find a point very close
+at all.
 
 ***********************************************************************/
 
+#include "dir.h"
+#include "exception.h"
+#include "parse.h"
 #include "track.h"
 #include "util.h"
-#include "parse.h"
-#include "dir.h"
 
-#include <string>
-#include <vector>
 #include <algorithm>
 #include <fstream>
 #include <set>
+#include <string>
+#include <vector>
 
 using namespace std;
 
-static double trackDistance(const Track & left, const Track & right) {
+static double trackDistance(const Track& left, const Track& right) {
+  double leftDistance = 0;
 
-    double leftDistance = 0;
-    int comparisons = 0;
+  // for each point in 'left', find the closest point in 'right'
+  for (const Point& left_point : left) {
+    double m = 1000000000;
 
-    // for each point in 'left', find the closest point in 'right'
-    for (int i = 0; i < left.size(); i++) {
+    double latmin = left_point.lat - 0.01;
+    double latmax = left_point.lat + 0.01;
+    double lonmin = left_point.lon - 0.01;
+    double lonmax = left_point.lon + 0.01;
 
-        double m = 1000000000;
+    for (const Point& right_point : right) {
+      if ((right_point.lat < latmin) ||
+          (right_point.lat > latmax) ||
+          (right_point.lon < lonmin) ||
+          (right_point.lon > lonmax)) {
+        continue;
+      }
 
-        double latmin = left[i].lat - 0.001;
-        double latmax = left[i].lat + 0.001;
-        double lonmin = left[i].lon - 0.001;
-        double lonmax = left[i].lon + 0.001;
+      double d = left_point.distance(right_point);
+      if (d < m) m = d;
 
-        for (int j = 0; j < right.size(); j++) {
-
-            if ((right[j].lat < latmin) ||
-                (right[j].lat > latmax) ||
-                (right[j].lon < lonmin) ||
-                (right[j].lon > lonmax)) {
-                continue;
-            }
-
-            comparisons++;
-            double d = left[i].distance(right[j]);
-            if (d < m) m = d;
-
-            if (m < 5) break; // close enough
-        }
-
-        leftDistance += m;
-
-        if (m > 1000) {
-            leftDistance = m * left.size();
-            break;
-        }
+      if (m < 2) break; // close enough
     }
 
-    return (leftDistance / left.size());
+    leftDistance += m * m;
+
+    if (m > 1000000) {
+      leftDistance = m * left.size();
+      break;
+    }
+  }
+
+  return (leftDistance / left.size());
 }
 
-enum Result {
+struct Result {
+  enum Judgement {
     RESULT_EQUAL,
     RESULT_CONTAINS,
     RESULT_ISCONTAINED,
     RESULT_NONE
+  };
+
+  Judgement judgement;
+  double left_average;
+  double right_average;
 };
 
-static Result compare(const Track & left, const Track & right) {
 
-    double leftAvg = trackDistance(left, right);
-    double rightAvg = trackDistance(right, left);
+static Result compare(const Track& left, const Track& right) {
+  Result result;
+  result.left_average = trackDistance(left, right);
+  result.right_average = trackDistance(right, left);
 
-    if ((leftAvg < 100) && (rightAvg < 100)) {
-        return RESULT_EQUAL;
-    } else if (leftAvg < 100) {
-        return RESULT_ISCONTAINED;
-    } else if (rightAvg < 100) {
-        return RESULT_CONTAINS;
-    } else {
-        return RESULT_NONE;
-    }
+  const double close_enough = 500.0;
+  if ((result.left_average < close_enough) &&
+      (result.right_average < close_enough)) {
+    result.judgement = Result::RESULT_EQUAL;
+  } else if (result.left_average < close_enough) {
+    result.judgement = Result::RESULT_ISCONTAINED;
+  } else if (result.right_average < close_enough) {
+    result.judgement = Result::RESULT_CONTAINS;
+  } else {
+    result.judgement = Result::RESULT_NONE;
+  }
+
+  return result;
 }
 
-typedef set<string> Cluster;
+int main(int argc, char* argv[]) {
+  try {
+    // A track, and the cluster to which the track belongs, if we know it.
+    struct TrackInfo {
+      Track track;
+      set<Track*>* cluster = nullptr;
+    };
+    vector<TrackInfo> tracks;
 
-int main(int argc, char * argv[]) {
+    for (int i = 1; i < argc; ++i) {
+      tracks.push_back(TrackInfo());
+      Track* t = &tracks.rbegin()->track;
 
-    try {
+      Parse::read(argv[i], *t);
 
-        vector<Track *> tracks;
-
-        for (int i = 1; i < argc; i++) {
-
-            Track * t = new Track;
-            Parse::read(*t, argv[i]);
-
-            string n(t->getName());
-            string s(Directory::basename(argv[i]));
-            if (!n.empty()) {
-                s += " (";
-                s += n;
-                s += ")";
-            }
-            t->setName(s);
-            cerr << "Read " << t->getName() << endl;
-
-            tracks.push_back(t);
-        }
-
-        vector<Cluster> clusters;
-
-        for (int i = 0; i < tracks.size(); i++) {
-            for (int j = i + 1; j < tracks.size(); j++) {
-                Result res = compare(*tracks[i], *tracks[j]);
-
-                switch (res) {
-                case RESULT_EQUAL: cout << "equal: "; break;
-                case RESULT_CONTAINS: cout << "contains: "; break;
-                case RESULT_ISCONTAINED: cout << "is contained: "; break;
-                case RESULT_NONE: cout << "none: "; break;
-                }
-
-                cout << tracks[i]->getName() << " "
-                     << tracks[j]->getName() << endl;
-
-                if (res == RESULT_EQUAL) {
-
-                    Cluster * cluster = 0;
-                    for (int k = 0; k < clusters.size(); k++) {
-                        if (clusters[k].find(tracks[i]->getName()) !=
-                            clusters[k].end()) {
-                            cluster = &clusters[k];
-                            break;
-                        }
-                    }
-
-                    if (cluster == 0) {
-                        Cluster newCluster;
-                        newCluster.insert(tracks[i]->getName());
-                        newCluster.insert(tracks[j]->getName());
-                        clusters.push_back(newCluster);
-                    } else {
-                        cluster->insert(tracks[j]->getName());
-                    }
-                }
-            }
-        }
-
-        cout << clusters.size() << " clusters." << endl;
-        for (int i = 0; i < clusters.size(); i++) {
-            cout << "Cluster " << i << ".";
-            
-            for (Cluster::const_iterator it = clusters[i].begin(); it != clusters[i].end(); it++) {
-                cout << " " << *it;
-            }
-            cout << endl << endl;
-        }
-
-        return 0;
-
-    } catch (const exception & e) {
-        cerr << "Caught error in main: " << e.what() << endl;
-    } catch (...) {
-        cerr << "Caught unknown error in main" << endl;
+      string n(t->getName());
+      string s(Directory::basename(argv[i]));
+      if (!n.empty()) {
+        s += " (";
+        s += n;
+        s += ")";
+      }
+      t->setName(s);
+      t->RemoveBurrs();
+      cerr << "Read " << t->getName() << endl;
     }
 
-    return 1;
+    // Each set is a cluster of equal tracks
+    vector<set<Track*>*> clusters;
+
+    for (TrackInfo& left : tracks) {
+      if (left.cluster != nullptr) continue;
+
+      for (TrackInfo& right : tracks) {
+        if (&left == &right) continue;
+        Result res = compare(left.track, right.track);
+
+        switch (res.judgement) {
+          case Result::RESULT_EQUAL: cerr << "equal: "; break;
+          case Result::RESULT_CONTAINS: cerr << "contains: "; break;
+          case Result::RESULT_ISCONTAINED: cerr << "is contained: "; break;
+          case Result::RESULT_NONE: cerr << "none: "; break;
+        }
+
+        cerr << left.track.getName() << " " << res.left_average << " "
+             << right.track.getName() << " " << res.right_average << endl;
+
+        if (res.judgement == Result::RESULT_EQUAL) {
+          if (left.cluster != nullptr) {
+            left.cluster->insert(&right.track);
+            if (right.cluster == nullptr) {
+              right.cluster = left.cluster;
+            }
+          } else if (right.cluster != nullptr) {
+            right.cluster->insert(&left.track);
+            ASSERTION(left.cluster == nullptr);
+            left.cluster = right.cluster;
+          } else {
+            clusters.push_back(new set<Track*>());
+            set<Track*>* cluster = *clusters.rbegin();
+            cluster->insert(&left.track);
+            cluster->insert(&right.track);
+            left.cluster = cluster;
+            right.cluster = cluster;
+          }
+        }
+      }
+    }
+
+    for (int i = 0; i < clusters.size(); ++i) {
+      cerr << "Cluster " << i << ":" << endl;
+      for (const auto* track : *clusters[i]) {
+        cerr << "    " << track->getName() << endl;
+      }
+    }
+
+    cout.precision(8);
+    for (int i = 0; i < clusters.size(); ++i) {
+      const set<Track*>& cluster = *clusters[i];
+      cout << "set terminal pngcairo size 2000,2000" << endl;
+      cout << "set output \"cluster_" << i << ".png\"" << endl;
+
+      bool first_track = true;
+      for (const Track* track : cluster) {
+        if (first_track) {
+          cout << "plot";
+          first_track = false;
+        } else {
+          cout << ",";
+        }
+        cout << " '-' with lines title '" << track->getName() << "' ";
+      }
+      cout << endl;
+
+      for (const Track* track : cluster) {
+        for (const Point& point : *track) {
+          cout << point.lon << " " << point.lat << endl;
+        }
+        cout << "e" << endl;
+      }
+    }
+
+    return 0;
+
+  } catch (const exception & e) {
+    cerr << "Caught error in main: " << e.what() << endl;
+  } catch (...) {
+    cerr << "Caught unknown error in main" << endl;
+  }
+
+  return 1;
 }

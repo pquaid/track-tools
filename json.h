@@ -12,8 +12,7 @@ public:
     std::string callback;
   };
 
-  static void write(std::ostream& out,
-                    const Track& track,
+  static void write(std::ostream& out, const Track& track,
                     Options option = Options());
 };
 

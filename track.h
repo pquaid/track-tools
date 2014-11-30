@@ -47,20 +47,22 @@ public:
   const Point& last() const;
 
   // Trim the track to 'samples' points
-  void sample(int samples);
+  void ShrinkBySample(int samples);
 
   // Shrink the track by averaging points down to the desired size
-  void average(int points);
+  void ShrinkByAverage(int points);
 
   // Remove points within the given rectangle
-  void mask(double minLon, double maxLon,
+  void Mask(double minLon, double maxLon,
             double minLat, double maxLat);
 
   // Remove a few points at the beginning or end that result from failing
   // to reset the computer.
-  void removeBurrs();
+  void RemoveBurrs();
 
-  // Set the elevation on a decaying average of elevation
+  // Adjust the elevation by applying a decaying average across the given
+  // number of samples. More samples -> smoother elevation. This helps for
+  // noisy elevation sources, notably GPS.
   void decayElevation(int samples);
 
   // Calculate a segment-oriented grade for each point, with segments of

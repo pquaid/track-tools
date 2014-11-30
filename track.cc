@@ -1,6 +1,7 @@
 #include "track.h"
 #include "exception.h"
 
+#include <set>
 #include <sstream>
 #include <memory>
 #include <stdint.h>
@@ -36,8 +37,21 @@ const Point& Track::last() const {
 // Remove some of the entries to get down to 'samples'. At the moment
 // this is just approximate; due to integer math, it gets close to
 // 'samples', but not exact
-void Track::sample(int samples) {
+void Track::ShrinkBySample(int samples) {
   if (samples >= size()) return;
+
+  // First, generate a set of points that are referenced as peaks
+  // or climb start/end points.
+  // This doesn't work at all -- the climbs reference the wrong indexes
+  // afterward.
+  set<int> referenced_points;
+  for (const Peak& peak : peaks) {
+    referenced_points.insert(peak.index);
+  }
+  for (const Climb& climb : climbs) {
+    referenced_points.insert(climb.getStartIndex());
+    referenced_points.insert(climb.getEndIndex());
+  }
 
   // Sample every n'th point
   int each = size() / samples;
@@ -45,8 +59,15 @@ void Track::sample(int samples) {
 
   int i = 0;
   while (i < size()) {
-    i++; // skip one entry;
-    int end = i + each - 1;
+    ++i;
+    if (referenced_points.count(i) > 0) continue;
+
+    int end = i;
+    for (int j = 0; j < each; ++j) {
+      ++end;
+      if (referenced_points.count(end) > 0) break;
+    }
+
     if (end >= size()) end = size() - 1;
     if (end > i) {
       erase(begin() + i, begin() + end);
@@ -54,7 +75,7 @@ void Track::sample(int samples) {
   }
 }
 
-void Track::average(int points) {
+void Track::ShrinkByAverage(int points) {
   PRECONDITION(points > 0);
 
   if (points >= size()) return;
@@ -111,7 +132,7 @@ void Track::average(int points) {
 }
 
 // Remove points within the given rectangle
-void Track::mask(double minLon, double maxLon, double minLat, double maxLat) {
+void Track::Mask(double minLon, double maxLon, double minLat, double maxLat) {
   int i = 0;
   while (i < size()) {
     const Point& p = at(i);
@@ -125,7 +146,7 @@ void Track::mask(double minLon, double maxLon, double minLat, double maxLat) {
   }
 }
 
-void Track::removeBurrs() {
+void Track::RemoveBurrs() {
   int presize;
   do {
     presize = size();

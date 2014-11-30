@@ -80,18 +80,18 @@ static time_t parseTimestamp(const char* timestamp) {
 
 static void processDoc(Document& doc, Track& track) {
   xml_node<>* kml = doc.getTop().first_node("kml");
-  if (kml == 0) {
+  if (kml == nullptr) {
     throw KMLError("No <kml> element");
   }
 
   const char* containerName = "Folder";
   const xml_node<>* container = kml->first_node(containerName);
-  if (container == 0) {
+  if (container == nullptr) {
     containerName = "Document";
     container = kml->first_node(containerName);
   }
 
-  if (container != 0) {
+  if (container != nullptr) {
     const xml_node<>* name = container->first_node("name");
     if (name != nullptr) {
       track.setName(name->value());
@@ -99,16 +99,16 @@ static void processDoc(Document& doc, Track& track) {
   }
 
   for ( ;
-        container != 0;
+        container != nullptr;
         container = container->next_sibling(containerName)) {
     for (const auto* placemark = container->first_node("Placemark");
          placemark != nullptr;
          placemark = placemark->next_sibling("Placemark")) {
       const xml_node<>* linestring = placemark->first_node("LineString");
 
-      if (linestring != 0) {
+      if (linestring != nullptr) {
         const xml_node<>* coords = linestring->first_node("coordinates");
-        if (coords != 0) {
+        if (coords != nullptr) {
           parseCoords(coords->value(), 0, track);
         }
       } else {
@@ -119,9 +119,8 @@ static void processDoc(Document& doc, Track& track) {
           for (const auto* gx_track = multitrack->first_node("gx:Track");
                gx_track != nullptr;
                gx_track = gx_track->next_sibling("gx:Track")) {
-
             time_t last_timestamp = 0;
-            for (auto* node = gx_track->first_node();
+            for (const auto* node = gx_track->first_node();
                  node != nullptr;
                  node = node->next_sibling()) {
               if (string("when") == node->name()) {
@@ -179,21 +178,21 @@ void KML::write(ostream& out, const Track& track, Options options) {
   string name(track.getName());
   if (name.empty()) name = "Path";
 
-  out << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" << endl
-      << "<kml xmlns=\"http://earth.google.com/kml/2.2\">" << endl
-      << "<Document>" << endl
-      << "<name>" << name << "</name>" << endl
-      << "<Style id=\"FlatStyle\"><LineStyle>" << endl
-      << "<color>";
+  out << R"(<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://earth.google.com/kml/2.2">
+<Document>
+<name>)" << name << R"(</name>
+<Style id="FlatStyle">
+<LineStyle><color>)";
 
   char buffer[100];
   snprintf(buffer, sizeof(buffer), "%02x%06x", options.opacity, options.color);
 
-  out << buffer << "</color><width>" << options.width << "</width>" << endl
-      << "</LineStyle></Style>" << endl;
-  out << "<Style id=\"ClimbStyle\"><LineStyle>" << endl
-      << "<color>ff0000bb</color><width>2</width>" << endl
-      << "</LineStyle></Style>" << endl;
+  out << buffer << "</color><width>" << options.width
+      << "</width></LineStyle></Style>" << endl;
+  out << R"(<Style id="ClimbStyle">
+<LineStyle><color>ff0000bb</color><width>2</width></LineStyle></Style>
+)";
 
   /*
   // TODO: To activate this, I need to ensure that Track::sample() properly
@@ -216,26 +215,26 @@ void KML::write(ostream& out, const Track& track, Options options) {
   writeSegment(out, track, 0, track.size() - 1, "#FlatStyle");
 
   if (options.startAndEnd && !track.empty()) {
-    out << "<Placemark><name>Start</name>" << endl
-	<< "<Style><IconStyle><scale>1.3</scale><Icon>" << endl
-	<< "<href>http://maps.google.com/mapfiles/kml/paddle/grn-circle.png</href>"
-	<< "</Icon>" << endl
-	<< "<hotSpot yunits=\"fraction\" y=\"0.0\" xunits=\"fraction\" x=\"0.5\"/>" << endl
-	<< "</IconStyle></Style>" << endl
-	<< "<Point><coordinates>";
+    out << R"(<Placemark><name>Start</name>
+<Style><IconStyle><scale>1.3</scale><Icon>
+<href>http://maps.google.com/mapfiles/kml/paddle/grn-circle.png</href>
+</Icon>
+<hotSpot yunits="fraction" y="0.0" xunits="fraction" x="0.5"/>
+</IconStyle></Style>
+<Point><coordinates>)";
     out.precision(12);
     out << track.first().lon << "," << track.first().lat << ",";
     out.precision(6);
     out << track.first().elevation
 	<< "</coordinates></Point></Placemark>" << endl;
         
-    out << "<Placemark><name>End</name>" << endl
-	<< "<Style><IconStyle><scale>1.3</scale><Icon>" << endl
-	<< "<href>http://maps.google.com/mapfiles/kml/paddle/red-circle.png</href>"
-	<< "</Icon>" << endl
-	<< "<hotSpot yunits=\"fraction\" y=\"0.0\" xunits=\"fraction\" x=\"0.5\"/>" << endl
-	<< "</IconStyle></Style>" << endl
-	<< "<Point><coordinates>";
+    out << R"(<Placemark><name>End</name>
+<Style><IconStyle><scale>1.3</scale><Icon>
+<href>http://maps.google.com/mapfiles/kml/paddle/red-circle.png</href>
+</Icon>
+<hotSpot yunits="fraction" y="0.0" xunits="fraction" x="0.5"/>
+</IconStyle></Style>
+<Point><coordinates>)";
     out.precision(12);
     out << track.last().lon << "," << track.last().lat << ",";
     out.precision(6);

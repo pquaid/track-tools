@@ -1,10 +1,17 @@
 #include "gnuplot.h"
-#include "track.h"
+
 #include "exception.h"
+#include "point.h"
+#include "track.h"
 
 using namespace std;
 
-static const char * xaxis(bool metric) {
+namespace {
+
+// Returns an X axis value, in terms of $1, depending on whether or not
+// the display is metric.
+
+const char* xaxis(bool metric) {
   // X-axis value is meters, which we want to display as either
   // KM or miles. KM is ($1/1000.0), miles is (($1/1000)*0.62137)
 
@@ -15,7 +22,7 @@ static const char * xaxis(bool metric) {
   }
 }
 
-static const char * yaxis(bool metric) {
+const char* yaxis(bool metric) {
   if (metric) {
     return "($2)";
   } else {
@@ -23,9 +30,11 @@ static const char * yaxis(bool metric) {
   }
 }
 
-static string axes(bool metric) {
+string axes(bool metric) {
   return string(xaxis(metric)) + ":" + yaxis(metric);
 }
+
+}  // namespace
 
 void Gnuplot::write(ostream& out, const Track& track, Options options) {
   PRECONDITION(!options.terminal.empty());
@@ -115,24 +124,23 @@ void Gnuplot::write(ostream& out, const Track& track, Options options) {
   }
 
   if (options.elevation) {
-    for (int i = 0; i < track.size(); i++) {
-      out << track[i].length << " " << track[i].elevation << endl;
+    for (const Point& point : track) {
+      out << point.length << " " << point.elevation << endl;
     }
     out << "e" << endl;
   }
 
   if (options.climbs) {
-    for (int i = 0; i < track.getClimbs().size(); i++) {
-      const Track::Climb & climb(track.getClimbs()[i]);
-      for (int j = climb.getStart().seq; j < climb.getEnd().seq; j++) {
-        out << track[j].length << " " << track[j].elevation << endl;
+    for (const Track::Climb& climb : track.getClimbs()) {
+      for (int i = climb.getStart().seq; i < climb.getEnd().seq; ++i) {
+        out << track[i].length << " " << track[i].elevation << endl;
       }
       out << "e" << endl;
     }
   }
 
   if (options.difficult && difficult) {
-    for (int i = start; i <= end; i++) {
+    for (int i = start; i <= end; ++i) {
       out << track[i].length << " " << track[i].elevation << endl;
     }
     out << "e" << endl;

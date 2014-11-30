@@ -33,6 +33,7 @@ void usage() {
        << "             -f <input-file> " << endl
        << "             -i <input-format> (gpx, kml, fit, txt -- optional)"
        << endl
+       << "             -h <int> (elevation decay samples)" << endl
        << "             -j <name> (JSON callback function)" << endl
        << "             -l (KML line color - BGR, eg 0xBBGGRR)" << endl
        << "             -m (metric)" << endl
@@ -49,10 +50,9 @@ void usage() {
 }
 
 // Command-line options
-static string inputFilename;
-static Parse::Format inputFormat  = Parse::FORMAT_UNKNOWN;
-static Parse::Format outputFormat = Parse::FORMAT_UNKNOWN;
-static bool plotOutput = false;
+static string input_filename;
+static Parse::Format input_format  = Parse::FORMAT_UNKNOWN;
+static Parse::Format output_format = Parse::FORMAT_UNKNOWN;
 
 static bool doClimbs     = true;
 static bool doPeaks      = false;
@@ -62,7 +62,8 @@ static bool quiet        = false;
 static bool metric       = false;
 static int  average      = 0;
 static string jsonCallback;
-static bool removeBurrs  = true;
+static bool remove_burrs  = true;
+static int decaySamples  = 0;
 
 static bool doMask       = false;
 static double maskMinLat = 0;
@@ -89,7 +90,7 @@ static double distance(double meters) {
   }
 }
 
-static void report(Track & track) {
+static void report(Track& track) {
   double climb = 0;
   if (!track.empty()) {
     climb = track.last().climb;
@@ -119,11 +120,11 @@ static void report(Track & track) {
   cerr << "Data points: " << track.size() << endl;
 }
 
-static void calculatePeaks(Track & track) {
+static void calculatePeaks(Track& track) {
   track.calculatePeaks(2000, 50);
 
   if (!quiet) {
-    const vector<Track::Peak> & peaks(track.getPeaks());
+    const vector<Track::Peak>& peaks(track.getPeaks());
     for (int i = 0; i < peaks.size(); i++) {
       cerr << "^ at " << distance(track[peaks[i].index].length)
            << " miles, ele "
@@ -135,12 +136,12 @@ static void calculatePeaks(Track & track) {
   }
 }
 
-static void calculateClimbs(Track & track) {
+static void calculateClimbs(Track& track) {
   track.calculateClimbs(4, 0.8, 1000, 6, 100, 600, 0.35);
 
   if (quiet) return;
 
-  const vector<Track::Climb> & climbs(track.getClimbs());
+  const vector<Track::Climb>& climbs(track.getClimbs());
   for (int i = 0; i < climbs.size(); i++) {
     cerr << "Climb " << i + 1 << ". From "
          << distance(climbs[i].getStart().length) << " to "
@@ -156,7 +157,7 @@ static void calculateClimbs(Track & track) {
   }
 }
 
-static void calculateDifficult(Track & track) {
+static void calculateDifficult(Track& track) {
   if (track.empty()) return;
   
   int start = 0;
@@ -208,7 +209,7 @@ static void processMask(string arg) {
 
 static void processCommandLine(int argc, char * argv[]) {
   while (true) {
-    int opt = getopt(argc, argv, "a:b:cdef:i:j:l:mn:o:pqs:vw:y");
+    int opt = getopt(argc, argv, "a:b:cdef:h:i:j:l:mn:o:pqs:vw:y");
     if (opt == -1) break;
 
     switch (opt) {
@@ -218,74 +219,58 @@ static void processCommandLine(int argc, char * argv[]) {
           throw Exception("-a (opacity) must be between 0 and 255");
         }
         break;
+
+      case 'b':
+        doMask = true;
+        processMask(optarg);
+        break;
+
+      case 'c':
+        doClimbs = false;
+        break;
+  
+      case 'd':
+        doDifficult = false;
+        break;
+
       case 'e':
         kmlOptions.startAndEnd = false;
         break;
+
       case 'f':
-        inputFilename = optarg;
+        input_filename = optarg;
         break;
-      case 'j':
-        jsonCallback = optarg;
-        break;
-      case 'l':
-        kmlOptions.color = strtol(optarg, 0, 0);
-        if (kmlOptions.color > 0xffffff) {
-          throw Exception("-l (line color) must be 0 to 0xffffff");
+
+      case 'h':
+        decaySamples = strtol(optarg, 0, 0);
+        if (decaySamples <= 0) {
+          throw Exception("-h (decay samples) must be positive");
         }
         break;
-      case 'o':
-        if (optarg == string("gnuplot")) {
-          outputFormat = Parse::FORMAT_UNKNOWN;
-          plotOutput = true;
-        } else {
-          outputFormat = Parse::stringToFormat(optarg);
-          if (outputFormat == Parse::FORMAT_FIT) {
-            throw Exception("Unable to write FIT files");
-          } else if (outputFormat == Parse::FORMAT_UNKNOWN) {
-            throw Exception(string("Unknown output format '") +
-                            optarg + "'");
-          }
-        }
-        break;
+
       case 'i':
-        inputFormat = Parse::stringToFormat(optarg);
-        if (inputFormat == Parse::FORMAT_PNG) {
+        input_format = Parse::stringToFormat(optarg);
+        if (input_format == Parse::FORMAT_PNG) {
           throw Exception("Unable to read PNG files");
-        } else if (inputFormat == Parse::FORMAT_JSON) {
+        } else if (input_format == Parse::FORMAT_JSON) {
           throw Exception("Unable to read JSON files");
         } else {
-          if (inputFormat == Parse::FORMAT_UNKNOWN) {
+          if (input_format == Parse::FORMAT_UNKNOWN) {
             throw Exception(string("Unknown input format '") +
                             optarg + "'");
           }
         }
         break;    
 
-      case 'c':
-        doClimbs = false;
-        break;
-  
-      case 'p':
-        doPeaks = true;
+      case 'j':
+        jsonCallback = optarg;
         break;
 
-      case 'd':
-        doDifficult = false;
-        break;
-
-      case 's':
-        downsample = strtol(optarg, 0, 0);
-        if (downsample < 1) {
-          throw Exception("-s (downsample) must be greater than 0");
+      case 'l':
+        kmlOptions.color = strtol(optarg, 0, 0);
+        if (kmlOptions.color > 0xffffff) {
+          throw Exception("-l (line color) must be 0 to 0xffffff");
         }
-        break;
-
-      case 'q':
-        quiet = true;
-        break;
-
-      case 'v':
-        quiet = false;
         break;
 
       case 'm':
@@ -299,9 +284,33 @@ static void processCommandLine(int argc, char * argv[]) {
         }
         break;
 
-      case 'b':
-        doMask = true;
-        processMask(optarg);
+      case 'o':
+        output_format = Parse::stringToFormat(optarg);
+        if (output_format == Parse::FORMAT_FIT) {
+          throw Exception("Unable to write FIT files");
+        } else if (output_format == Parse::FORMAT_UNKNOWN) {
+          throw Exception(string("Unknown output format '") +
+                          optarg + "'");
+        }
+        break;
+
+      case 'p':
+        doPeaks = true;
+        break;
+
+      case 'q':
+        quiet = true;
+        break;
+
+      case 's':
+        downsample = strtol(optarg, 0, 0);
+        if (downsample < 1) {
+          throw Exception("-s (downsample) must be greater than 0");
+        }
+        break;
+
+      case 'v':
+        quiet = false;
         break;
 
       case 'w':
@@ -309,7 +318,7 @@ static void processCommandLine(int argc, char * argv[]) {
         break;
 
       case 'y':
-        removeBurrs = !removeBurrs;
+        remove_burrs = !remove_burrs;
         break;
 
       default:
@@ -318,8 +327,8 @@ static void processCommandLine(int argc, char * argv[]) {
   }
 
   for ( ; optind < argc; optind++) {      
-    if (inputFilename.empty()) {
-      inputFilename = argv[optind];
+    if (input_filename.empty()) {
+      input_filename = argv[optind];
     } else {
       throw Exception(string("Extra parameter detected: ") +
                       argv[optind]);
@@ -327,7 +336,7 @@ static void processCommandLine(int argc, char * argv[]) {
   }
 }
 
-static string removeSuffix(const string & str) {
+static string removeSuffix(const string& str) {
   string::size_type pos = str.find_last_of('.');
   if ((pos != string::npos) && (pos != 0)) {
     return str.substr(0,pos);
@@ -339,24 +348,28 @@ static string removeSuffix(const string & str) {
 int main(int argc, char * argv[]) {
   // Figure out the input, do some calculations, write the
   // output (if any)
-    
+
   try {
     processCommandLine(argc, argv);
 
     // Read it
     Track track;
-    Parse::read(track, inputFilename, inputFormat);
+    Parse::read(input_filename, track, input_format);
 
     if (track.getName().empty()) {
-      track.setName(removeSuffix(Directory::basename(inputFilename)));
+      track.setName(removeSuffix(Directory::basename(input_filename)));
     }
 
-    if (removeBurrs) {
-      track.removeBurrs();
+    if (remove_burrs) {
+      track.RemoveBurrs();
+    }
+
+    if (decaySamples > 0) {
+      track.decayElevation(decaySamples);
     }
 
     if (average > 0) {
-      track.average(average);
+      track.ShrinkByAverage(average);
     }
 
     // Do some calculations
@@ -367,32 +380,32 @@ int main(int argc, char * argv[]) {
     if (!quiet) report(track);
 
     if (doMask) {
-      track.mask(maskMinLon, maskMaxLon, maskMinLat, maskMaxLat);
+      track.Mask(maskMinLon, maskMaxLon, maskMinLat, maskMaxLat);
     }
 
     if (doPeaks)     calculatePeaks(track);
     if (doClimbs)    calculateClimbs(track);
     if (doDifficult) calculateDifficult(track);
-    if (downsample > 0)  track.sample(downsample);
+    if (downsample > 0)  track.ShrinkBySample(downsample);
 
     // Write the results, if desired
-    if (plotOutput) {
+    if (output_format == Parse::FORMAT_GNUPLOT) {
       Gnuplot::Options opt;
       opt.metric = metric;
       Gnuplot::write(cout, track, opt);
-    } else if (outputFormat == Parse::FORMAT_KML) {
+    } else if (output_format == Parse::FORMAT_KML) {
       KML::write(cout, track, kmlOptions);
-    } else if (outputFormat == Parse::FORMAT_GPX) {
+    } else if (output_format == Parse::FORMAT_GPX) {
       GPX::write(cout, track);
-    } else if (outputFormat == Parse::FORMAT_TEXT) {
+    } else if (output_format == Parse::FORMAT_TEXT) {
       Text::write(cout, track);
-    } else if (outputFormat == Parse::FORMAT_PNG) {
+    } else if (output_format == Parse::FORMAT_PNG) {
       PNG::Options opt;
       opt.metric = metric;
       opt.climbs = doClimbs;
       opt.difficult = doDifficult;
       PNG::write(cout, track, opt);
-    } else if (outputFormat == Parse::FORMAT_JSON) {
+    } else if (output_format == Parse::FORMAT_JSON) {
       JSON::Options opt;
       opt.callback = jsonCallback;
       JSON::write(cout, track, opt);
@@ -402,7 +415,7 @@ int main(int argc, char * argv[]) {
 
     return 0;
 
-  } catch (const std::exception & e) {
+  } catch (const std::exception& e) {
     cerr << e.what() << endl;
   } catch (...) {
     cerr << "Unknown exception in main" << endl;

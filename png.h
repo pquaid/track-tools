@@ -8,27 +8,21 @@ class Track;
 
 class PNG {
 public:
+  struct Options {
+    Options() {}
 
-    struct Options {
+    int width = 800;
+    int height = 300;
+    bool metric = false;
+    bool grade = true;
+    bool climbs = true;
+    bool difficult = true;
+    double pointSize = 10;
+    std::string font = "helvetica";
+  };
 
-        Options() : width(800), height(300), metric(false),
-            grade(true), climbs(true), difficult(true),
-            pointSize(10), font("helvetica")
-            {}
-
-        int width;
-        int height;
-        bool metric;
-        bool grade;
-        bool climbs;
-        bool difficult;
-        double pointSize;
-        std::string font;
-    };
-
-    static void write(std::ostream & out,
-                      Track & track,
-                      Options opt = Options());
+  static void write(std::ostream& out, const Track& track,
+                    Options opt = Options());
 };
 
 #endif

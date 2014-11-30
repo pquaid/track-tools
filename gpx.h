@@ -1,10 +1,10 @@
 #if !defined GPX_H
 #define      GPX_H
 
+#include "exception.h"
+
 #include <iosfwd>
 #include <string>
-
-#include "exception.h"
 
 class Track;
 

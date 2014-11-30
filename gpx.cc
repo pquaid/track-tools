@@ -43,24 +43,22 @@ private:
 
 static void processDoc(const Document& doc, Track& points) {
   const xml_node<>* trk = doc.getTop().first_node()->first_node("trk");
-  if (trk == 0) throw GPXError("No <trk> element");
+  if (trk == nullptr) throw GPXError("No <trk> element");
 
   const xml_node<>* name = trk->first_node("name");
-  if (name != 0) {
+  if (name != nullptr) {
     points.setName(name->value());
   }
-
-  int seq = 0;
 
   // I need mktime() to work in UTC
   TimezoneReset tzreset("UTC");
 
   for (xml_node<>* trkseg = trk->first_node();
-       trkseg != 0;
+       trkseg != nullptr;
        trkseg = trkseg->next_sibling()) {    
     if (strcmp(trkseg->name(), "trkseg") == 0) {
       for (xml_node<>* trkpt = trkseg->first_node("trkpt");
-           trkpt != 0;
+           trkpt != nullptr;
            trkpt = trkpt->next_sibling("trkpt")) {
         Point current;
 
@@ -68,7 +66,7 @@ static void processDoc(const Document& doc, Track& points) {
         current.lon = toDouble(trkpt->first_attribute("lon")->value());
 
         const xml_node<>* ele = trkpt->first_node("ele");
-        if (ele != 0) {
+        if (ele != nullptr) {
           current.elevation = toDouble(ele->value());
         }
 
@@ -79,34 +77,28 @@ static void processDoc(const Document& doc, Track& points) {
         }
 
         const xml_node<>* ts = trkpt->first_node("time");
-        if (ts != 0) {
+        if (ts != nullptr) {
           struct tm time;
           strptime(ts->value(), "%Y-%m-%dT%H:%M:%S.000Z", &time);
           current.timestamp = mktime(&time);
         }
 
         const xml_node<>* ext = trkpt->first_node("extensions");
-        if (ext != 0) {
+        if (ext != nullptr) {
           ext = ext->first_node("gpxtpx:TrackPointExtension");
-          if (ext != 0) {
+          if (ext != nullptr) {
             const xml_node<>* hr = ext->first_node("gpxtpx:hr");
-            if (hr != 0) {
+            if (hr != nullptr) {
               current.hr = strtol(hr->value(), 0, 10);
             }
             const xml_node<>* atemp = ext->first_node("gpxtpx:atemp");
-            if (atemp != 0) {
+            if (atemp != nullptr) {
               current.atemp = toDouble(atemp->value());
             }
           }
         }
 
-        current.seq = seq;
-        seq++;
-
-        if (!points.empty()) {
-          const Point& last = points[points.size() - 1];
-          current.length = last.length + current.distance(last);
-        }
+        current.seq = points.size();
         points.push_back(current);
       }
     }

@@ -11,9 +11,7 @@ void JSON::write(ostream& out, const Track& track, JSON::Options opt) {
   out << "{ \"points\": [";
   for (int i = 0; i < track.size(); i++) {
     if (i > 0) out << "," << endl;
-    out << "["
-        << track[i].length << "," << track[i].elevation
-        << "]";
+    out << "[" << track[i].length << "," << track[i].elevation << "]";
   }
   out << "]," << endl;
   out << "\"climbs\": [" << endl;

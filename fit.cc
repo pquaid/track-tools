@@ -25,11 +25,9 @@ time_t toTime(FIT_DATE_TIME s) {
 
 class Listener : public fit::RecordMesgListener {
 public:
-  Listener(vector<Point>& points_)
-      : sequence(0), points(points_)
-  {}
+  Listener(vector<Point>& points) : points_(points) {}
 
-  void OnMesg(fit::RecordMesg & msg) {
+  void OnMesg(fit::RecordMesg& msg) {
     Point current;
 
     FIT_SINT32 pos = msg.GetPositionLat();
@@ -40,7 +38,9 @@ public:
     }
 
     pos = msg.GetPositionLong();
-    if (pos != FIT_SINT32_INVALID) {
+    if (pos == FIT_SINT32_INVALID) {
+      return;
+    } else {
       current.lon = toDegree(pos);
     }
 
@@ -66,15 +66,12 @@ public:
       current.atemp = temp;
     }
 
-    current.seq = sequence;
-    ++sequence;
-
-    points.push_back(current);
+    current.seq = points_.size();
+    points_.push_back(current);
   }
 
 private:
-  uint32_t sequence;
-  vector<Point>& points;
+  vector<Point>& points_;
 };
 
 void Fit::read(istream& in, Track& points) {

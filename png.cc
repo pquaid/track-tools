@@ -11,6 +11,10 @@
 
 using namespace std;
 
+const double PI = 3.14159265359;
+const double MILES_PER_KM = 0.62137;
+const double FEET_PER_METER = 3.2808;
+
 class Image {
 public:
   Image(PNG::Options inOpts) : ptr(0), options(inOpts) {
@@ -25,21 +29,24 @@ public:
 
   ~Image() { if (!ptr) gdImageDestroy(ptr); }
 
-  char * font() { return const_cast<char*>(options.font.c_str()); }
+  // Return a non-const string to accommodate GD's general non-constness.
+  char* font() const { return const_cast<char*>(options.font.c_str()); }
 
-  double distance(double d) const {
+  // Return either km or miles, based on the option.
+  double distance(double meters) const {
     if (options.metric) {
-      return d / 1000.0;
+      return meters / 1000.0;
     } else {
-      return (d / 1000.0) * 0.62137;
+      return (meters / 1000.0) * MILES_PER_KM;
     }
   }
 
+  // Return either meters or feet, depending on the option.
   double elevation(double d) const {
     if (options.metric) {
       return d;
     } else {
-      return d * 3.2808;
+      return d * FEET_PER_METER;
     }
   }
 
@@ -52,53 +59,58 @@ public:
 
   // Max and min Y values, in terms of the displayed data (not the source
   // data in meters, not the pixels). So if it's metric, it's in meters,
-  // otherwise in feet.
+  // otherwise in feet. The min and max are slightly below and above the
+  // track's min and max elevation.
   double min;
   double max;
-  double incr;
-  double subIncr;
+  double incr;       // tic increment
+  double subIncr;    // sub-tic increment
+
+  // Total length in meters.
   double length;
 
   // Return the X position (in pixels) of a given data value
-  int getX(double pos) {
-    return (pos / length) * (right - left) + left;
+  int getX(double pos_in_meters) const {
+    return (pos_in_meters / length) * (right - left) + left;
   }
 
   // Return the Y position for a value already converted to display form
   // (ie metric or imperial). For example, a value based on 'min' or 'max'.
-  int getRawY(double ele) {
+  int getRawY(double ele) const {
     return bottom - (ele - min) / (max - min) * (bottom - top);
   }
 
   // Return the Y position (in pixels) of a given data value
-  int getY(double ele) {
-    return getRawY(elevation(ele));
+  int getY(double ele_in_meters) const {
+    return getRawY(elevation(ele_in_meters));
   }
 };
 
-static int writeTo(void * context, const char * buffer, int len) {
+namespace {
+
+// Writes a buffer of len bytes to context, which is an ostream.
+int writeTo(void* context, const char* buffer, int len) {
   PRECONDITION(context != 0);
   PRECONDITION(buffer != 0);
 
-  ostream * out = (ostream *) context;
+  ostream* out = (ostream*) context;
   out->write(buffer, len);
   return len;
 }
 
-static int intensity(int easy, int hard, double actual) {
+// Returns an integer between 'easy' and 'hard', based on the value of
+// 'actual', which ranges from 0 to 1.0.
+int intensity(int easy, int hard, double actual) {
   return (int) (easy * (1 - actual) + hard * actual);
 }
 
-static void graphGrade(Image & img, Track & track, bool grade) {
+void graphGrade(const Image& img, const Track& track, bool grade) {
   if (track.empty()) return;
-
-  double len = track.getTotalDistance();
 
   int prevX = 0;
   int prevY = 0;
 
   // Calculate the first point
-
   prevX = img.left;
   prevY = img.getY(track[0].elevation);
 
@@ -109,7 +121,6 @@ static void graphGrade(Image & img, Track & track, bool grade) {
   int hard[3] = { 0xff, 0x00, 0x00 };
 
   for (int i = 0; i < track.size(); i++) {
-
     int x = img.getX(track[i].length);
     int y = img.getY(track[i].elevation);
 
@@ -126,7 +137,6 @@ static void graphGrade(Image & img, Track & track, bool grade) {
     points[3].y = img.bottom;
 
     if (grade) {
-
       // We're going to pick a color between "easy" and "hard". We'll
       // arbitrarily set "easy" to < 1% grade, and "hard" to 12% or more.
       // Grade is non-linear, so I'm going to square it (again,
@@ -146,7 +156,6 @@ static void graphGrade(Image & img, Track & track, bool grade) {
       POSTCONDITION(h <= 100);
 
       // Now we choose a color some distance betwen "easy" and "hard"
-
       color = gdImageColorResolve(img.ptr,
                                   intensity(easy[0], hard[0], h),
                                   intensity(easy[1], hard[1], h),
@@ -160,96 +169,115 @@ static void graphGrade(Image & img, Track & track, bool grade) {
   }
 }
 
-static void graphElevation(Image & img, Track & track,
-                           int start, int end, int color,
-                           int offsetX = 0, int offsetY = 0) {
-
+void graphElevation(const Image& img, const Track& track,
+                    int start, int end, int color) {
   PRECONDITION(start >= 0);
   PRECONDITION(start < track.size());
   PRECONDITION(end >= start);
   PRECONDITION(end <= track.size());
 
-  int prevX = img.getX(track[start].length);
-  int prevY = img.getY(track[start].elevation);
-
   gdImageSetThickness(img.ptr, 2);
+  gdImageSetAntiAliased(img.ptr, color);
 
-  for (int i = start; i <= end; i++) {
+  int prev_x = -1;
+  int prev_y = -1;
 
-    int x = img.getX(track[i].length) + offsetX;
-    int y = img.getY(track[i].elevation) + offsetY;
-
-    if ((x != prevX) || (y != prevY)) {
-      gdImageLine(img.ptr, prevX, prevY, x, y, color);
-
-      prevX = x;
-      prevY = y;
+  int point = start;
+  while (point <= end) {
+    const int x = img.getX(track[point].length);
+    // Determine the average elevation of all points that map to x
+    double running_elevation = track[point].elevation;
+    int elevation_points = 1;
+    ++point;
+    while (point <= end && img.getX(track[point].length) == x) {
+      running_elevation += track[point].elevation;
+      ++elevation_points;
+      ++point;
     }
+    const int y = img.getY(running_elevation / elevation_points);
+
+    if (prev_x >= 0) {
+      gdImageLine(img.ptr, prev_x, prev_y, x, y, gdAntiAliased);
+    }
+    prev_x = x;
+    prev_y = y;
   }
 }
 
+// Boundaries for rendered text are given as an array of 8 integers, or
+// four (x,y) points: lower left, lower right, upper right, upper left.
+const int LLX_INDEX = 0;
+const int LLY_INDEX = 1;
+const int LRX_INDEX = 2;
+const int LRY_INDEX = 3;
+const int URX_INDEX = 4;
+const int URY_INDEX = 5;
+const int ULX_INDEX = 6;
+const int ULY_INDEX = 7;
 
-static void drawTicsY(Image & img) {
+void drawTicsY(const Image & img) {
+  const int grey = gdImageColorResolve(img.ptr, 0xD0, 0xF0, 0xF4);
+  const int semi = gdImageColorResolve(img.ptr, 0xD8, 0xF8, 0xF8);
+  const int dark = gdImageColorResolve(img.ptr, 0x40, 0x40, 0x40);
 
-  int grey = gdImageColorResolve(img.ptr, 0xD0, 0xF0, 0xF4);
-  int semi = gdImageColorResolve(img.ptr, 0xD8, 0xF8, 0xF8);
-  int dark = gdImageColorResolve(img.ptr, 0x40, 0x40, 0x40);
-
-  double pt = img.options.pointSize;
-
-  int rect[8];
+  const double pt = img.options.pointSize;
 
   // Draw the minor tic marks
   for (double ele = img.min; ele < img.max ; ele += img.subIncr) {
-    int y = img.getRawY(ele);
+    const int y = img.getRawY(ele);
     gdImageLine(img.ptr, img.left, y, img.right, y, semi);
   }
+
+  // Boundaries of the rendered text, as described above.
+  int rect[8];
 
   // Draw the major tic marks, and the tic labels
   for (double ele = img.min; ele <= img.max ; ele += img.incr) {
     // Don't draw the top or bottom line, because the two-pixel line
     // will be outside the border
-    int y = img.getRawY(ele);
-    if ((ele > img.min) && (ele < img.max)) {
+    const int y = img.getRawY(ele);
+    if (ele > img.min && ele < img.max) {
       gdImageSetThickness(img.ptr, 2);
       gdImageLine(img.ptr, img.left, y, img.right, y, grey);
       gdImageSetThickness(img.ptr, 1);
     }
 
+    // Draw the tic label
     char buffer[100];
     snprintf(buffer, sizeof(buffer), "%g", ele);
-    gdImageStringFT(0, &rect[0], dark, img.font(), pt, 0, 0, 0, buffer);
 
+    gdImageStringFT(nullptr, rect, dark, img.font(), pt, 0, 0, 0, buffer);
+  
     gdImageStringFT(img.ptr, 0, dark, img.font(), pt, 0,
-                    (img.left - rect[2]) - 5,
-                    y - rect[5] / 2,
+                    (img.left - rect[LRX_INDEX]) - 5,
+                    y - rect[URY_INDEX] / 2,
                     buffer);
 
+    // Draw a little tab next to the label, in the same color as the label.
     gdImageLine(img.ptr, img.left, y, img.left - 3, y, dark);
   }
 
-  // Write the base label
-
-  const char * label = "elevation (feet)";
+  // Write the Y label, rotated 90 degrees (aka PI/2).
+  const char* label = "elevation (feet)";
   if (img.options.metric) {
     label = "elevation (meters)";
   }
 
-  gdImageStringFT(0, &rect[0], 0, img.font(), pt, 3.14159/2,
+  gdImageStringFT(nullptr, rect, 0, img.font(), pt, PI/2,
                   0, 0, const_cast<char*>(label));
 
-  gdImageStringFT(img.ptr, 0, dark, img.font(), pt, 3.14159/2,
-                  -(rect[4] - rect[0]),
-                  (img.bottom + img.top) / 2 - rect[5]/2,
+  gdImageStringFT(img.ptr, 0, dark, img.font(), pt, PI/2,
+                  rect[LLX_INDEX] - rect[URX_INDEX],
+                  (img.bottom + img.top) / 2 - rect[URY_INDEX]/2,
                   const_cast<char*>(label));
 }
 
-static void drawTicsX(Image & img) {
-  double pt = img.options.pointSize;
+void drawTicsX(const Image & img) {
+  const double pt = img.options.pointSize;
 
-  double length = img.distance(img.length); // track distance in display units
+  const double length = img.distance(img.length);  // in display units
   double incr = pow(10, floor(log10(length)));
-  double tics = length / incr;
+  const double tics = length / incr;
 
   if (tics > 8) {
     incr *= 2;
@@ -257,7 +285,7 @@ static void drawTicsX(Image & img) {
     incr /= 2;
   }
 
-  int dark = gdImageColorResolve(img.ptr, 0x40, 0x40, 0x40);
+  const int dark = gdImageColorResolve(img.ptr, 0x40, 0x40, 0x40);
   int rect[8];
 
   // Track the lowest tic label
@@ -267,84 +295,76 @@ static void drawTicsX(Image & img) {
     char buffer[100];
     snprintf(buffer, sizeof(buffer), "%g", tic);
 
-    gdImageStringFT(0, &rect[0], dark, img.font(), pt, 0,
-                    0, 0, buffer);
+    gdImageStringFT(nullptr, rect, dark, img.font(), pt, 0, 0, 0, buffer);
 
-    int x = (tic / length) * (img.right - img.left) + img.left;
+    const int x = (tic / length) * (img.right - img.left) + img.left;
+    const int y = img.bottom + 6 - rect[URY_INDEX];
+    if (y > ticBottom) ticBottom = y;
  
+    // Just draw the little tab below the image.
     gdImageLine(img.ptr, x, img.bottom, x, img.bottom + 5, dark);
 
-    int y = img.bottom + 6 - rect[5];
-    if (y > ticBottom) ticBottom = y;
-
     gdImageStringFT(img.ptr, 0, dark, img.font(), pt, 0,
-                    x - rect[2] / 2, y, buffer);
+                    x - rect[LRX_INDEX] / 2, y, buffer);
   }
 
-  const char * label = "distance (miles)";
+  const char* label = "distance (miles)";
   if (img.options.metric) {
     label = "distance (kilometers)";
   }
 
-  gdImageStringFT(0, rect, dark, img.font(), pt, 0, 0, 0,
+  gdImageStringFT(nullptr, rect, dark, img.font(), pt, 0, 0, 0,
                   const_cast<char*>(label));
 
   gdImageStringFT(img.ptr, 0, dark, img.font(), pt, 0,
-                  (img.right + img.left) / 2 - rect[2] / 2,
-                  ticBottom + 5 - rect[5],
+                  (img.right + img.left) / 2 - rect[LRX_INDEX] / 2,
+                  ticBottom + 5 - rect[URY_INDEX],
                   const_cast<char*>(label));
 }
 
-static void drawDifficult(Image & img, Track & track) {
+// Mark the most difficult km, if there was one, as a background rectangle.
+void drawDifficult(const Image& img, const Track& track) {
   int start = 0;
   int end = 0;
   double score = 0;
   track.mostDifficult(1000, start, end, score);
 
   if (score > 0) {
-    int leftX = img.getX(track[start].length);
-    int rightX = img.getX(track[end].length);
+    const int left_x = img.getX(track[start].length);
+    const int right_x = img.getX(track[end].length);
 
-    int color = gdImageColorResolveAlpha(img.ptr, 0xF0, 0xA0, 0xA0, 0x60);
-    gdImageFilledRectangle(img.ptr,
-                           leftX, img.top, rightX, img.bottom,
+    const int color = gdImageColorResolveAlpha(img.ptr, 0xF0, 0xA0, 0xA0, 0x60);
+    gdImageFilledRectangle(img.ptr, left_x, img.top, right_x, img.bottom,
                            color);
   }
 }
 
-static void calculateDataRange(Image & img, Track & track) {
-  img.min = img.elevation(track.getMinimumElevation());
-  img.max = img.elevation(track.getMaximumElevation());
+void calculateDataRange(Image& img, const Track& track) {
+  const double min_ele = img.elevation(track.getMinimumElevation());
+  const double max_ele = img.elevation(track.getMaximumElevation());
 
-  img.incr = pow(10, floor(log10(img.max - img.min)));
+  img.incr = pow(10, floor(log10(max_ele - min_ele)));
   img.subIncr = img.incr / 10;
 
-  img.length = track.getTotalDistance();
-
-  double tics = (img.max - img.min) / img.incr;
+  double tics = (max_ele - min_ele) / img.incr;
   if (tics > 6) {
     img.incr *= 2;
     img.subIncr *= 2;
   } else if (tics < 3) {
     img.incr /= 2;
+    // Leave the subIncr the same -- it looks better.
   }
-    
-  img.min = floor(img.min / img.incr) * img.incr;
-  img.max = ceil(img.max / img.incr) * img.incr;
+
+  img.min = floor(min_ele / img.incr) * img.incr;
+  img.max = ceil(max_ele / img.incr) * img.incr;
+  img.length = track.getTotalDistance();
 }
 
-static void writeRect(int * rect) {
-  cerr << rect[0] << "," << rect[1] << endl
-       << rect[2] << "," << rect[3] << endl
-       << rect[4] << "," << rect[5] << endl
-       << rect[5] << "," << rect[6] << endl;
-}
-
-// Calculate where the left edge of the image should start, considering
+// Calculates where the left edge of the image should start, considering
 // the left-side labels
-static int calculateLeftBorder(Image & img) {
+int calculateLeftBorder(const Image& img) {
   int rect[8];
-  double pt = img.options.pointSize;
+  const double pt = img.options.pointSize;
   int right = 0;
 
   // Check the length of *each* of the tic labels
@@ -352,83 +372,75 @@ static int calculateLeftBorder(Image & img) {
     char buffer[100];
     snprintf(buffer, sizeof(buffer), "%d", tic);
     gdImageStringFT(0, rect, 0, img.font(), pt, 0, 0, 0, buffer);
-
-    if (rect[2] > right) right = rect[2];
+    right = std::max(right, rect[LRX_INDEX]);
   }
 
-  gdImageStringFT(nullptr, rect, 0, img.font(), pt, 3.14159/2,
-                  0, 0, (char *) "elevation (meters)");
+  gdImageStringFT(nullptr, rect, 0, img.font(), pt, PI/2,
+                  0, 0, const_cast<char*>("elevation (meters)"));
 
-  POSTCONDITION(rect[4] < 0);
-
-  return right + -(rect[4] - rect[0]) + 5 + 5;
+  POSTCONDITION(rect[URX_INDEX] < 0);
+  // Length of longest tic + height of label + buffers on both sides
+  return right + (rect[LLX_INDEX] - rect[URX_INDEX]) + 5 + 5;
 }
 
-static int calculateBottomBorder(Image & img) {
+int calculateBottomBorder(const Image& img) {
   int rect[8];
-  double pt = img.options.pointSize;
+  const double pt = img.options.pointSize;
 
-  // The text here are just samples
-  char * text = const_cast<char*>("10");
-  char * font = const_cast<char*>("helvetica");
+  // This is just a sample, assuming all the distance labels would be similar.
+  char* text = const_cast<char*>("10");
 
-  gdImageStringFT(nullptr, &rect[0], 0, font, pt, 0, 0, 0, text);
-  POSTCONDITION(rect[5] < 0);
+  gdImageStringFT(nullptr, rect, 0, img.font(), pt, 0, 0, 0, text);
+  POSTCONDITION(rect[URY_INDEX] < 0);
 
-  int border = rect[1] - rect[5];
+  const int border = rect[LLY_INDEX] - rect[URY_INDEX];
 
   text = const_cast<char*>("distance (miles)");
-  gdImageStringFT(0, &rect[0], 0, font, pt, 0, 0, 0, text);
+  gdImageStringFT(nullptr, rect, 0, img.font(), pt, 0, 0, 0, text);
 
-  return border + 5 + (rect[1] - rect[5]) + 5;
+  // tic height + label height + buffers on both sides
+  return border + 5 + (rect[LLY_INDEX] - rect[URY_INDEX]) + 5;
 }
 
-void PNG::write(ostream & out, Track & track, Options opt) {
+}  // namespace
+
+void PNG::write(ostream& out, const Track& track, Options opt) {
   Image img(opt);
 
-  int white = gdImageColorResolve(img.ptr, 0xFF, 0xFF, 0xFF);
+  const int white = gdImageColorResolve(img.ptr, 0xFF, 0xFF, 0xFF);
   gdImageFilledRectangle(img.ptr,
-                         0, 0, img.options.width-1, img.options.height-1,
+                         0, 0, img.options.width - 1, img.options.height - 1,
                          white);
 
   // Fill in the min/max/etc Y data values
   calculateDataRange(img, track);
 
-  // Start with a 10-pixel border around the whole image
-  img.left = 10;
-  img.right = img.options.width - 10;
-  img.top = 10;
-  img.bottom = img.options.height - 10;
-
-  // Reset the left & bottom to account for labels, etc.
-  img.left = calculateLeftBorder(img);
+  img.left = calculateLeftBorder(img);  // account for labels, etc.
+  img.right = img.options.width - 10;   // 10 pixel border
+  img.top = 10;                         // 10 pixel border
   img.bottom = img.options.height - calculateBottomBorder(img);
 
-  {
-    // Draw the background of the graph
-    int background = gdImageColorResolve(img.ptr, 0xF0, 0xFF, 0xFF);
-    gdImageFilledRectangle(img.ptr,
-                           img.left, img.top, img.right, img.bottom,
-                           background);
-  }
+  // Draw the background of the graph
+  const int background = gdImageColorResolve(img.ptr, 0xF0, 0xFF, 0xFF);
+  gdImageFilledRectangle(img.ptr,
+                         img.left, img.top, img.right, img.bottom,
+                         background);
 
   drawTicsY(img);
   drawTicsX(img);
 
   if (opt.climbs) {
-    int lighter = gdImageColorResolveAlpha(img.ptr, 0xB0, 0xD0, 0xB0, 0x60);
+    const int light = gdImageColorResolveAlpha(img.ptr, 0xB0, 0xD0, 0xB0, 0x60);
 
     // First, draw the climb markers and background
-    for (int i = 0; i < track.getClimbs().size(); i++) {
-      const Track::Climb & climb(track.getClimbs()[i]);
-
-      int leftX = img.getX(climb.getStart().length);
-      int rightX = img.getX(climb.getEnd().length);
+    for (const Track::Climb& climb : track.getClimbs()) {
+      const int leftX = img.getX(climb.getStart().length);
+      const int rightX = img.getX(climb.getEnd().length);
 
       // Draw a rectangle all the way down the graph to show the area
       gdImageFilledRectangle(img.ptr,
                              leftX, img.top, rightX, img.bottom,
-                             lighter);
+                             light);
     }
   }
 
@@ -436,57 +448,28 @@ void PNG::write(ostream & out, Track & track, Options opt) {
     drawDifficult(img, track);
   }
 
-  if (false) {
-    const int SIZEX = 3;
-    const int SIZEY = 3;
-    gdImagePtr brush = gdImageCreate(SIZEX, SIZEY);
-    double zero = sqrt(SIZEX/2 * SIZEX/2 + SIZEY/2 * SIZEY/2);
-
-    int clear = gdImageColorResolve(brush, 0xFF, 0xFF, 0xFF);
-    gdImageColorTransparent(brush, clear);
-    gdImageFilledRectangle(brush, 0, 0, SIZEX-1, SIZEY-1, clear);
-
-    for (int x = 0; x < SIZEX; x++) {
-      for (int y = 0; y < SIZEY; y++) {
-        double dist = sqrt((x - SIZEX/2) * (x - SIZEX/2) +
-                           (y - SIZEY/2) * (y - SIZEY/2));
-        int alpha = (dist / zero) * 127;
-        if (alpha > 127) alpha = 127;
-        int color = gdImageColorResolveAlpha(brush, 0x00, 0x00, 0x00, alpha);
-        gdImageSetPixel(brush, x, y, color);
-      }
-    }
-
-    gdImageSetClip(img.ptr, img.left, img.top, img.right, img.bottom);
-    gdImageSetBrush(img.ptr, brush);
-    graphElevation(img, track, 0, track.size()-1, gdBrushed, 4, 4);
-    gdImageDestroy(brush);
-    gdImageSetClip(img.ptr, 0, 0, img.options.width, img.options.height);
-  }
-
   graphGrade(img, track, opt.grade);
 
-  {
-    int elevationLine = gdImageColorResolve(img.ptr, 0x30, 0x50, 0x30);
-    graphElevation(img, track, 0, track.size()-1, elevationLine);
-  }
+  const int elevationLine = gdImageColorResolve(img.ptr, 0x30, 0x50, 0x30);
+  graphElevation(img, track, 0, track.size() - 1, elevationLine);
 
   if (opt.climbs) {
-    int textColor = gdImageColorResolve(img.ptr, 0x40, 0x40, 0x40);
-    int strip = gdImageColorResolve(img.ptr, 0x10, 0x50, 0x10);
+    // Above we marked the climbs with an area "behind" the grade. In this
+    // section we draw the text, and a little bar at the bottom.
+    const int textColor = gdImageColorResolve(img.ptr, 0x40, 0x40, 0x40);
+    const int strip = gdImageColorResolve(img.ptr, 0x10, 0x50, 0x10);
 
-    // Now, draw the text (length & grade)
-    for (int i = 0; i < track.getClimbs().size(); i++) {
-      const Track::Climb & climb(track.getClimbs()[i]);
+    // Draw the text (length & grade)
+    for (const Track::Climb& climb : track.getClimbs()) {
+      const int left_x = img.getX(climb.getStart().length);
+      const int right_x = img.getX(climb.getEnd().length);
 
-      int leftX = img.getX(climb.getStart().length);
-      int rightX = img.getX(climb.getEnd().length);
+      const double len = climb.getEnd().length - climb.getStart().length;
+      const double grade =
+          ((climb.getEnd().elevation - climb.getStart().elevation) /
+           len) * 100.0;
 
-      double len = climb.getEnd().length - climb.getStart().length;
-      double grade = ((climb.getEnd().elevation - climb.getStart().elevation) /
-                      len) * 100.0;
-
-      // TODO: Actually center the two lines
+      // TODO: Center both of the lines, individually
       char buffer[100];
       snprintf(buffer, sizeof(buffer), "%0.1f%s\n %0.1f%%",
                img.distance(len),
@@ -494,20 +477,21 @@ void PNG::write(ostream & out, Track & track, Options opt) {
                grade);
 
       int rect[8];
-      gdImageStringFT(0, rect, 0, const_cast<char*>(opt.font.c_str()),
+      gdImageStringFT(nullptr, rect, 0, img.font(),
                       8, 0, 0, 0, buffer);
 
-      gdImageStringFT(img.ptr, 0, textColor,
-                      const_cast<char*>(opt.font.c_str()),
-                      8, 0,
-                      (rightX + leftX) / 2 - rect[2] / 2,
-                      img.top - (rect[5] - rect[1]),
-                      buffer);
+      // Mid-point of the climb - half width of the text
+      const int x =
+          (right_x + left_x) / 2 - (rect[LRX_INDEX] - rect[ULX_INDEX]) / 2;
+      // top + half height of text + 5 pixel buffer
+      const int y = img.top + (rect[LLY_INDEX] - rect[URY_INDEX]) / 2 + 5;
+
+      gdImageStringFT(img.ptr, 0, textColor, img.font(), 8, 0, x, y, buffer);
 
       // Draw a bar at the bottom of the image to more clearly mark
       // the start/end of a climb
       gdImageFilledRectangle(img.ptr,
-                             leftX, img.bottom - 4, rightX, img.bottom,
+                             left_x, img.bottom - 4, right_x, img.bottom,
                              strip);
     }
   }
@@ -517,7 +501,7 @@ void PNG::write(ostream & out, Track & track, Options opt) {
   int grey  = gdImageColorResolve(img.ptr, 0x80, 0x80, 0x80);
   gdImageRectangle(img.ptr, img.left, img.top, img.right, img.bottom, grey);
 
-  // Write to stdout
+  // Write to 'out'
   gdSink sink;
   sink.context = &out;
   sink.sink = writeTo;

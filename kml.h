@@ -16,13 +16,12 @@
 class KML {
 public:
   struct Options {
-   Options() : startAndEnd(true), width(2), color(0xbb0000), opacity(0xff)
-    {}
+    Options() {}
 
-    bool startAndEnd; // add start/end icons
-    double width;     // width of the line
-    uint32_t color;   // color, as bgr (eg 0x0000ff == red)
-    uint32_t opacity; // alpha of line, from 0 (transparent) to 255 (opaque)
+    bool startAndEnd = true;   // add start/end icons
+    double width = 2.0;        // width of the line
+    uint32_t color = 0xbb0000; // color, as bgr (eg 0x0000ff == red)
+    uint32_t opacity = 0xff;   // alpha of line: 0 (transparent) to 255 (opaque)
   };
 
   static void read(std::istream& in, Track& out);
