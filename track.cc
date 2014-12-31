@@ -169,6 +169,16 @@ void Track::RemoveBurrs() {
   } while (presize > size());
 }
 
+void Track::CalculateLength() {
+  double running = 0;
+  for (int i = 0; i < size(); ++i) {
+    if (i > 0) {
+      running += (*this)[i].distance((*this)[i - 1]);
+    }
+    (*this)[i].length = running;
+  }
+}
+
 // Decay the elevation. This helps if you're using GPS elevation, which
 // is very noisy
 void Track::decayElevation(int samples) {

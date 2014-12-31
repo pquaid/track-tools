@@ -60,6 +60,11 @@ public:
   // to reset the computer.
   void RemoveBurrs();
 
+  // Set the length at each point by calculating the distance from the
+  // previous point. This is normally done when reading the data, but
+  // some formats (.fit) use a different method.
+  void CalculateLength();
+
   // Adjust the elevation by applying a decaying average across the given
   // number of samples. More samples -> smoother elevation. This helps for
   // noisy elevation sources, notably GPS.

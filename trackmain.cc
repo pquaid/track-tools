@@ -41,6 +41,8 @@ void usage() {
        << "             -o <output-format> (gpx, kml, gnuplot, txt)" << endl
        << "             -p (calculate peaks)" << endl
        << "             -q (quiet; print nothing extra)" << endl
+       << "             -r (calculate length relative to previous points)"
+       << endl
        << "             -s <int> (sample)" << endl
        << "             -v (verbose; default)" << endl
        << "             -w <double> (width of KML line)" << endl
@@ -63,6 +65,7 @@ static bool metric       = false;
 static int  average      = 0;
 static string jsonCallback;
 static bool remove_burrs  = true;
+static bool relativeLength = false;
 static int decaySamples  = 0;
 
 static bool doMask       = false;
@@ -109,13 +112,11 @@ static void report(Track& track) {
        << (metric ? " km" : " miles")
        << endl;
 
-  double speed = track.getTotalDistance() / track.calculateTotalTime();
-  cerr << "Average speed: "
-       << (metric ? (speed*3.6) : (speed*2.2369))
+  const double total_hours = track.calculateTotalTime() / 3600.0;
+  cerr << "Average speed: " << distance(track.getTotalDistance()) / total_hours
        << (metric ? " kph" : " mph") << endl;
-  speed = track.getTotalDistance() / track.calculateMovingTime();
-  cerr << "Moving speed:  "
-       << (metric ? (speed*3.6) : (speed*2.2369))
+  const double moving_hours = track.calculateMovingTime() / 3600.0;
+  cerr << "Moving speed:  " << distance(track.getTotalDistance()) / moving_hours
        << (metric ? " kph" : " mph") << endl;
   cerr << "Data points: " << track.size() << endl;
 }
@@ -124,40 +125,45 @@ static void calculatePeaks(Track& track) {
   track.calculatePeaks(2000, 50);
 
   if (!quiet) {
-    const vector<Track::Peak>& peaks(track.getPeaks());
-    for (int i = 0; i < peaks.size(); i++) {
-      cerr << "^ at " << distance(track[peaks[i].index].length)
-           << " miles, ele "
-           << (int) altitude(track[peaks[i].index].elevation)
-           << " ft, prom "
-           << (int) altitude(peaks[i].prominence) << " ft, range "
-           << distance(peaks[i].range) << " miles" << endl;
+    for (const Track::Peak& peak : track.getPeaks()) {
+      cerr << "^ at " << distance(track[peak.index].length)
+           << ", ele " << (int) altitude(track[peak.index].elevation)
+           << ", prom " << (int) altitude(peak.prominence)
+           << ", range " << distance(peak.range) << endl;
     }
   }
 }
 
 static void calculateClimbs(Track& track) {
-  track.calculateClimbs(4, 0.8, 1000, 6, 100, 600, 0.35);
+  track.calculateClimbs(4,     // minimum grade, in percent
+                        0.8,   // ratio of grades for joining climbs
+                        1000,  // significant length in meters
+                        6,     // significant grade, in percent
+                        100,   // significant climb, in meters
+                        600,   // minimum length, in meters
+                        0.35); // maximum distance between climbs, as a ratio
 
   if (quiet) return;
 
   const vector<Track::Climb>& climbs(track.getClimbs());
-  for (int i = 0; i < climbs.size(); i++) {
+  for (int i = 0; i < climbs.size(); ++i) {
+    const Track::Climb& climb = climbs[i];
     cerr << "Climb " << i + 1 << ". From "
-         << distance(climbs[i].getStart().length) << " to "
-         << distance(climbs[i].getEnd().length) << " ("
-         << distance(climbs[i].getLength())
+         << distance(climb.getStart().length) << " to "
+         << distance(climb.getEnd().length) << " ("
+         << distance(climb.getLength())
          << (metric ? " km" : " miles")
-         << ") grade " << climbs[i].getGrade() << ". From "
-         << altitude(climbs[i].getStart().elevation) << " to "
-         << altitude(climbs[i].getEnd().elevation)
-         << " (" << altitude(climbs[i].getEnd().elevation - climbs[i].getStart().elevation)
+         << ") grade " << climb.getGrade() << ". From "
+         << altitude(climb.getStart().elevation) << " to "
+         << altitude(climb.getEnd().elevation)
+         << " ("
+         << altitude(climb.getEnd().elevation - climb.getStart().elevation)
          << (metric ? " meters)" : " feet)")
-         << " - " << (int) climbs[i].getDifficulty() << endl;
+         << " - " << (int) climb.getDifficulty() << endl;
   }
 }
 
-static void calculateDifficult(Track& track) {
+static void calculateDifficult(const Track& track) {
   if (track.empty()) return;
   
   int start = 0;
@@ -196,20 +202,22 @@ static void processMask(string arg) {
   }
 
   if ((maskMaxLon < -180) || (maskMaxLon > 180) || (maskMaxLon < maskMinLon)) {
-    throw Exception("mask max longitude must be between -180 and 180, greater than min");
+    throw Exception("mask max longitude must be between -180 and 180, "
+                    "and greater than min");
   }
 
   if ((maskMinLat < -90) || (maskMinLat > 90)) {
     throw Exception("mask min latitude must be between -90 and 90");
   }
   if ((maskMaxLat < -90) || (maskMaxLat > 90) || (maskMaxLat < maskMinLat)) {
-    throw Exception("mask min latitude must be between -90 and 90, and greater than min");
+    throw Exception("mask min latitude must be between -90 and 90, "
+                    "and greater than min");
   }
 }
 
 static void processCommandLine(int argc, char * argv[]) {
   while (true) {
-    int opt = getopt(argc, argv, "a:b:cdef:h:i:j:l:mn:o:pqs:vw:y");
+    const int opt = getopt(argc, argv, "a:b:cdef:h:i:j:l:mn:o:pqrs:vw:y");
     if (opt == -1) break;
 
     switch (opt) {
@@ -302,6 +310,10 @@ static void processCommandLine(int argc, char * argv[]) {
         quiet = true;
         break;
 
+      case 'r':
+        relativeLength = true;
+        break;
+
       case 's':
         downsample = strtol(optarg, 0, 0);
         if (downsample < 1) {
@@ -362,6 +374,10 @@ int main(int argc, char * argv[]) {
 
     if (remove_burrs) {
       track.RemoveBurrs();
+    }
+
+    if (relativeLength) {
+      track.CalculateLength();
     }
 
     if (decaySamples > 0) {

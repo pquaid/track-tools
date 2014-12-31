@@ -24,8 +24,8 @@ time_t toTime(FIT_DATE_TIME s) {
 }  // unnamed namespace
 
 class Listener : public fit::RecordMesgListener {
-public:
-  Listener(vector<Point>& points) : points_(points) {}
+ public:
+  Listener(vector<Point>* points) : points_(points) {}
 
   void OnMesg(fit::RecordMesg& msg) {
     Point current;
@@ -66,19 +66,19 @@ public:
       current.atemp = temp;
     }
 
-    current.seq = points_.size();
-    points_.push_back(current);
+    current.seq = points_->size();
+    points_->push_back(current);
   }
 
 private:
-  vector<Point>& points_;
+  vector<Point>* points_;
 };
 
 void Fit::read(istream& in, Track& points) {
   fit::MesgBroadcaster messages;
-  Listener listener(points);
+  Listener listener(&points);
 
-  messages.AddListener((fit::RecordMesgListener&) listener);
+  messages.AddListener((fit::RecordMesgListener &) listener);
 
   try {
     messages.Run(in);
