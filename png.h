@@ -20,6 +20,9 @@ public:
     bool difficult = true;
     double pointSize = 10;
 
+    // The range of elevations to display, in terms of the displayed units
+    // (feet or meters). If the actual elevations exceed this range, the
+    // actual values will be used.
     double minimum_elevation = DBL_MAX;
     double maximum_elevation = DBL_MIN;
 
