@@ -339,9 +339,12 @@ void drawDifficult(const Image& img, const Track& track) {
   }
 }
 
-void calculateDataRange(Image& img, const Track& track) {
-  const double min_ele = img.elevation(track.getMinimumElevation());
-  const double max_ele = img.elevation(track.getMaximumElevation());
+void calculateDataRange(Image& img, const Track& track,
+                        const PNG::Options& options) {
+  const double min_ele = std::min(img.elevation(track.getMinimumElevation()),
+                                  options.minimum_elevation);
+  const double max_ele = std::max(img.elevation(track.getMaximumElevation()),
+                                  options.maximum_elevation);
 
   img.incr = pow(10, floor(log10(max_ele - min_ele)));
   img.subIncr = img.incr / 10;
@@ -413,7 +416,7 @@ void PNG::write(ostream& out, const Track& track, Options opt) {
                          white);
 
   // Fill in the min/max/etc Y data values
-  calculateDataRange(img, track);
+  calculateDataRange(img, track, opt);
 
   img.left = calculateLeftBorder(img);  // account for labels, etc.
   img.right = img.options.width - 10;   // 10 pixel border

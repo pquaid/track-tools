@@ -31,6 +31,9 @@ public:
     int getStartIndex() const { return start; }
     int getEndIndex() const { return end; }
 
+    void SetStart(int s) { start = s; }
+    void SetEnd(int e) { end = e; }
+
   private:
     const Track* track;
     int start;

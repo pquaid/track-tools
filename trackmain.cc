@@ -31,10 +31,11 @@ void usage() {
        << "             -d (calculate most difficult KM)" << endl
        << "             -e (omit start/end in KML)" << endl
        << "             -f <input-file> " << endl
+       << "             -h <int> (elevation decay samples)" << endl
        << "             -i <input-format> (gpx, kml, fit, txt -- optional)"
        << endl
-       << "             -h <int> (elevation decay samples)" << endl
        << "             -j <name> (JSON callback function)" << endl
+       << "             -k min,max (displayed elevation range)" << endl
        << "             -l (KML line color - BGR, eg 0xBBGGRR)" << endl
        << "             -m (metric)" << endl
        << "             -n <int> (average down to 'n' samples)" << endl
@@ -44,6 +45,8 @@ void usage() {
        << "             -r (calculate length relative to previous points)"
        << endl
        << "             -s <int> (sample)" << endl
+       << "             -t <string> (gnuplot terminal)" << endl
+       << "             -u width,height (PNG image dimensions)" << endl
        << "             -v (verbose; default)" << endl
        << "             -w <double> (width of KML line)" << endl
        << endl
@@ -74,8 +77,14 @@ static double maskMinLon = 0;
 static double maskMaxLat = 0;
 static double maskMaxLon = 0;
 
-static KML::Options kmlOptions;
+static double min_elevation = DBL_MAX;
+static double max_elevation = DBL_MIN;
 
+static int image_width = 0;
+static int image_height = 0;
+static string gnuplot_terminal = "";
+
+static KML::Options kmlOptions;
 
 static double altitude(double meters) {
   if (metric) {
@@ -217,7 +226,7 @@ static void processMask(string arg) {
 
 static void processCommandLine(int argc, char * argv[]) {
   while (true) {
-    const int opt = getopt(argc, argv, "a:b:cdef:h:i:j:l:mn:o:pqrs:vw:y");
+    const int opt = getopt(argc, argv, "a:b:cdef:h:i:j:k:l:mn:o:pqrs:t:u:vw:y");
     if (opt == -1) break;
 
     switch (opt) {
@@ -274,6 +283,15 @@ static void processCommandLine(int argc, char * argv[]) {
         jsonCallback = optarg;
         break;
 
+      case 'k':
+        if (sscanf(optarg, "%lf,%lf", &min_elevation, &max_elevation) != 2) {
+          throw Exception("Expecting -k min,max. Example: -k 100,1000");
+        }
+        if (min_elevation > max_elevation) {
+          throw Exception("Minimum elevation must be > maximum");
+        }
+        break;
+
       case 'l':
         kmlOptions.color = strtol(optarg, 0, 0);
         if (kmlOptions.color > 0xffffff) {
@@ -318,6 +336,19 @@ static void processCommandLine(int argc, char * argv[]) {
         downsample = strtol(optarg, 0, 0);
         if (downsample < 1) {
           throw Exception("-s (downsample) must be greater than 0");
+        }
+        break;
+
+      case 't':
+        gnuplot_terminal = optarg;
+        break;
+
+      case 'u':
+        if (sscanf(optarg, "%d,%d", &image_width, &image_height) != 2) {
+          throw Exception("Expecting -t width,height. Example: -t 800,300");
+        }
+        if (image_width <= 0 || image_height <= 0) {
+          throw Exception("Invalid image dimensions (must be > 0)");
         }
         break;
 
@@ -408,6 +439,9 @@ int main(int argc, char * argv[]) {
     if (output_format == Parse::FORMAT_GNUPLOT) {
       Gnuplot::Options opt;
       opt.metric = metric;
+      if (!gnuplot_terminal.empty()) {
+        opt.terminal = gnuplot_terminal;
+      }
       Gnuplot::write(cout, track, opt);
     } else if (output_format == Parse::FORMAT_KML) {
       KML::write(cout, track, kmlOptions);
@@ -420,6 +454,10 @@ int main(int argc, char * argv[]) {
       opt.metric = metric;
       opt.climbs = doClimbs;
       opt.difficult = doDifficult;
+      opt.minimum_elevation = min_elevation;
+      opt.maximum_elevation = max_elevation;
+      if (image_width > 0) opt.width = image_width;
+      if (image_height > 0) opt.height = image_height;
       PNG::write(cout, track, opt);
     } else if (output_format == Parse::FORMAT_JSON) {
       JSON::Options opt;

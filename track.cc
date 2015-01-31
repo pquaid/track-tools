@@ -4,6 +4,8 @@
 #include <set>
 #include <sstream>
 #include <memory>
+#include <unordered_map>
+
 #include <stdint.h>
 
 using namespace std;
@@ -40,17 +42,27 @@ const Point& Track::last() const {
 void Track::ShrinkBySample(int samples) {
   if (samples >= size()) return;
 
-  // First, generate a set of points that are referenced as peaks
-  // or climb start/end points.
-  // This doesn't work at all -- the climbs reference the wrong indexes
-  // afterward.
-  set<int> referenced_points;
-  for (const Peak& peak : peaks) {
-    referenced_points.insert(peak.index);
+  // Climbs and peaks refer to points by index, but obviously removing
+  // points will change indices. So first, we map the relevant original
+  // indices to (unchanging) sequence numbers, then later we'll map those
+  // sequence numbers back to indices. In the meantime, we'll use the presence
+  // of an entry in 'seq_to_new_index' to indicate that the relevant sequence
+  // number must be retained.
+  std::unordered_map<int, int> original_index_to_seq;
+  std::unordered_map<int, int> seq_to_new_index;
+
+  for (const Track::Peak& peak : peaks) {
+    original_index_to_seq.insert(make_pair(peak.index, at(peak.index).seq));
+    seq_to_new_index.insert(make_pair(at(peak.index).seq, -1));
   }
-  for (const Climb& climb : climbs) {
-    referenced_points.insert(climb.getStartIndex());
-    referenced_points.insert(climb.getEndIndex());
+  for (const Track::Climb& climb : climbs) {
+    const int start = climb.getStartIndex();
+    original_index_to_seq.insert(make_pair(start, at(start).seq));
+    seq_to_new_index.insert(make_pair(at(start).seq, -1));
+
+    const int end = climb.getEndIndex();
+    original_index_to_seq.insert(make_pair(end, at(end).seq));
+    seq_to_new_index.insert(make_pair(end, -1));
   }
 
   // Sample every n'th point
@@ -59,19 +71,57 @@ void Track::ShrinkBySample(int samples) {
 
   int i = 0;
   while (i < size()) {
-    ++i;
-    if (referenced_points.count(i) > 0) continue;
+    ++i;  // Note that we always keep the first point
+    if (i >= size()) break;
+
+    if (seq_to_new_index.find(at(i).seq) != seq_to_new_index.end()) continue;
 
     int end = i;
     for (int j = 0; j < each; ++j) {
       ++end;
-      if (referenced_points.count(end) > 0) break;
+      if (end >= size() ||
+          seq_to_new_index.find(at(end).seq) != seq_to_new_index.end()) break;
     }
 
     if (end >= size()) end = size() - 1;
     if (end > i) {
       erase(begin() + i, begin() + end);
     }
+  }
+
+  // Determine the new indices for the important points.
+  for (int i = 0; i < size(); ++i) {
+    auto it = seq_to_new_index.find(at(i).seq);
+    if (it != seq_to_new_index.end()) {
+      it->second = i;
+    }
+  }
+
+  // Reset the climbs and peaks
+  for (Track::Peak& peak : peaks) {
+    ASSERTION(original_index_to_seq.find(peak.index) !=
+              original_index_to_seq.end());
+    const int seq = original_index_to_seq[peak.index];
+    ASSERTION(seq_to_new_index.find(seq) != seq_to_new_index.end());
+    ASSERTION(seq_to_new_index[seq] != -1);
+    peak.index = seq_to_new_index[seq];
+  }
+
+  for (Track::Climb& climb : climbs) {
+    int original_idx = climb.getStartIndex();
+    ASSERTION(original_index_to_seq.find(original_idx) !=
+              original_index_to_seq.end());
+    int seq = original_index_to_seq[original_idx];
+    ASSERTION(seq_to_new_index.find(seq) != seq_to_new_index.end());
+    ASSERTION(seq_to_new_index[seq] != -1);
+    const int new_start = seq_to_new_index[seq];
+
+    original_idx = climb.getEndIndex();
+    seq = original_index_to_seq[original_idx];
+    const int new_end = seq_to_new_index[seq];
+
+    climb.SetStart(new_start);
+    climb.SetEnd(new_end);
   }
 }
 
@@ -154,7 +204,7 @@ void Track::RemoveBurrs() {
     // First, find a long gap. Then discard the points on the short side.
     for (int i = 1; i < size(); i++) {
       const time_t unreasonable_time = 4 * 60 * 60; // 4 hours
-      const time_t time_gap = (*this)[i].timestamp - (*this)[i-1].timestamp;
+      const time_t time_gap = at(i).timestamp - at(i - 1).timestamp;
 
       if (time_gap > unreasonable_time) {
 	if (i <= (size() / 2)) {
