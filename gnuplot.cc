@@ -62,13 +62,6 @@ void Gnuplot::write(ostream& out, const Track& track, Options options) {
       << " graph 1, graph 1 behind"
       << " fillcolor rgb '#f0ffff' fillstyle solid 1.0" << endl;
 
-  const char* m_to_m = "*0.62137";
-  const char* m_to_f = "*3.2808";
-  if (options.metric) {
-    m_to_m = "";
-    m_to_f = "";
-  }
-
   out << "plot ";
   bool plotted = false;
 
@@ -93,7 +86,7 @@ void Gnuplot::write(ostream& out, const Track& track, Options options) {
 
   // Highlight each of the climbs
   if (options.climbs && !track.getClimbs().empty()) {
-    for (int i = 0; i < track.getClimbs().size(); ++i) {
+    for (unsigned i = 0; i < track.getClimbs().size(); ++i) {
       out << (plotted ? "," : "");
       plotted = true;
 

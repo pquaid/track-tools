@@ -9,13 +9,13 @@ void JSON::write(ostream& out, const Track& track, JSON::Options opt) {
     out << opt.callback << "(";
   }
   out << "{ \"points\": [";
-  for (int i = 0; i < track.size(); i++) {
+  for (unsigned i = 0; i < track.size(); i++) {
     if (i > 0) out << "," << endl;
     out << "[" << track[i].length << "," << track[i].elevation << "]";
   }
   out << "]," << endl;
   out << "\"climbs\": [" << endl;
-  for (int i = 0; i < track.getClimbs().size(); i++) {
+  for (unsigned i = 0; i < track.getClimbs().size(); i++) {
     const Track::Climb & climb(track.getClimbs()[i]);
     if (i > 0) out << "," << endl;
     out << "{ \"start\": " << climb.getStart().seq

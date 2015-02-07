@@ -120,7 +120,7 @@ void graphGrade(const Image& img, const Track& track, bool grade) {
   int easy[3] = { 0x50, 0xb0, 0x50 };
   int hard[3] = { 0xff, 0x00, 0x00 };
 
-  for (int i = 0; i < track.size(); i++) {
+  for (unsigned i = 0; i < track.size(); i++) {
     int x = img.getX(track[i].length);
     int y = img.getY(track[i].elevation);
 
@@ -170,7 +170,7 @@ void graphGrade(const Image& img, const Track& track, bool grade) {
 }
 
 void graphElevation(const Image& img, const Track& track,
-                    int start, int end, int color) {
+                    unsigned start, unsigned end, int color) {
   PRECONDITION(start >= 0);
   PRECONDITION(start < track.size());
   PRECONDITION(end >= start);
@@ -182,7 +182,7 @@ void graphElevation(const Image& img, const Track& track,
   int prev_x = -1;
   int prev_y = -1;
 
-  int point = start;
+  unsigned point = start;
   while (point <= end) {
     const int x = img.getX(track[point].length);
     // Determine the average elevation of all points that map to x
@@ -428,6 +428,30 @@ void PNG::write(ostream& out, const Track& track, Options opt) {
   gdImageFilledRectangle(img.ptr,
                          img.left, img.top, img.right, img.bottom,
                          background);
+  if (img.options.days) {
+    struct tm start;
+    struct tm last;
+    localtime_r(&track[0].timestamp, &start);
+
+    int day = 0;
+    int backgrounds[2];
+    backgrounds[0] = gdImageColorResolve(img.ptr, 0xFF, 0xFF, 0xFF);
+    backgrounds[1] = gdImageColorResolve(img.ptr, 0xD0, 0xD0, 0xD0);
+
+    int startX = img.left;
+    for (unsigned i = 1; i < track.size(); ++i) {
+      localtime_r(&track[i].timestamp, &last);
+      if (start.tm_yday != last.tm_yday || (i + 1) == track.size()) {
+        const int x = img.getX(track[i].length);
+        gdImageFilledRectangle(img.ptr,
+                               startX, img.bottom, x, img.options.height - 1,
+                               backgrounds[day]);
+        start = last;
+        startX = x;
+        day = 1 - day;
+      }
+    }
+  }
 
   drawTicsY(img);
   drawTicsX(img);

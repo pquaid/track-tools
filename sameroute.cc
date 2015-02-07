@@ -29,8 +29,18 @@ at all.
 
 using namespace std;
 
-static double trackDistance(const Track& left, const Track& right) {
-  double leftDistance = 0;
+// Returns the ratio (0 .. 1.0) of points in 'left' that are close to
+// points in 'right'.
+static double trackDistance(const Track& left, const Track& right,
+                            const double close_enough,
+                            const double percentile) {
+  // We're not really going to count
+  int over = 0;
+  int under = 0;
+
+  // Quit early if possible. If we get more than this number of
+  // 'over' points, then it's not a match.
+  const int pcount = left.size() * (1.0 - percentile);
 
   // for each point in 'left', find the closest point in 'right'
   for (const Point& left_point : left) {
@@ -52,18 +62,20 @@ static double trackDistance(const Track& left, const Track& right) {
       double d = left_point.distance(right_point);
       if (d < m) m = d;
 
-      if (m < 2) break; // close enough
+      if (m <= close_enough) break; // close enough
     }
 
-    leftDistance += m * m;
-
-    if (m > 1000000) {
-      leftDistance = m * left.size();
-      break;
+    if (m <= close_enough) {
+      ++under;
+    } else {
+      ++over;
+      if (over > pcount) {
+        return 0;
+      }
     }
   }
 
-  return (leftDistance / left.size());
+  return under / static_cast<double>(under + over);
 }
 
 struct Result {
@@ -75,23 +87,22 @@ struct Result {
   };
 
   Judgement judgement;
-  double left_average;
-  double right_average;
+  double left_ratio;
+  double right_ratio;
 };
 
 
 static Result compare(const Track& left, const Track& right) {
   Result result;
-  result.left_average = trackDistance(left, right);
-  result.right_average = trackDistance(right, left);
+  const double target = 0.96;
+  result.left_ratio = trackDistance(left, right, 25.0, 0.90);
+  result.right_ratio = trackDistance(right, left, 25.0, 0.90);
 
-  const double close_enough = 500.0;
-  if ((result.left_average < close_enough) &&
-      (result.right_average < close_enough)) {
+  if (result.left_ratio >= target && result.right_ratio >= target) {
     result.judgement = Result::RESULT_EQUAL;
-  } else if (result.left_average < close_enough) {
+  } else if (result.left_ratio >= target) {
     result.judgement = Result::RESULT_ISCONTAINED;
-  } else if (result.right_average < close_enough) {
+  } else if (result.right_ratio >= target) {
     result.judgement = Result::RESULT_CONTAINS;
   } else {
     result.judgement = Result::RESULT_NONE;
@@ -130,11 +141,13 @@ int main(int argc, char* argv[]) {
     // Each set is a cluster of equal tracks
     vector<set<Track*>*> clusters;
 
-    for (TrackInfo& left : tracks) {
-      if (left.cluster != nullptr) continue;
+    for (unsigned left_idx = 0; left_idx < tracks.size(); ++left_idx) {
+      TrackInfo& left = tracks[left_idx];
+      //      if (left.cluster != nullptr) continue;
 
-      for (TrackInfo& right : tracks) {
-        if (&left == &right) continue;
+      for (unsigned right_idx = left_idx + 1; right_idx < tracks.size();
+           ++right_idx) {
+        TrackInfo& right = tracks[right_idx];
         Result res = compare(left.track, right.track);
 
         switch (res.judgement) {
@@ -144,20 +157,17 @@ int main(int argc, char* argv[]) {
           case Result::RESULT_NONE: cerr << "none: "; break;
         }
 
-        cerr << left.track.getName() << " " << res.left_average << " "
-             << right.track.getName() << " " << res.right_average << endl;
+        cerr << left.track.getName() << " " << res.left_ratio << " "
+             << right.track.getName() << " " << res.right_ratio << endl;
 
         if (res.judgement == Result::RESULT_EQUAL) {
           if (left.cluster != nullptr) {
             left.cluster->insert(&right.track);
-            if (right.cluster == nullptr) {
-              right.cluster = left.cluster;
-            }
-          } else if (right.cluster != nullptr) {
+          }
+          if (right.cluster != nullptr) {
             right.cluster->insert(&left.track);
-            ASSERTION(left.cluster == nullptr);
-            left.cluster = right.cluster;
-          } else {
+          }
+          if (left.cluster == nullptr && right.cluster == nullptr) {
             clusters.push_back(new set<Track*>());
             set<Track*>* cluster = *clusters.rbegin();
             cluster->insert(&left.track);
@@ -165,11 +175,17 @@ int main(int argc, char* argv[]) {
             left.cluster = cluster;
             right.cluster = cluster;
           }
+
+          if (right.cluster == nullptr) {
+            right.cluster = left.cluster;
+          } else if (left.cluster == nullptr) {
+            left.cluster = right.cluster;
+          }
         }
       }
     }
 
-    for (int i = 0; i < clusters.size(); ++i) {
+    for (unsigned i = 0; i < clusters.size(); ++i) {
       cerr << "Cluster " << i << ":" << endl;
       for (const auto* track : *clusters[i]) {
         cerr << "    " << track->getName() << endl;
@@ -177,9 +193,11 @@ int main(int argc, char* argv[]) {
     }
 
     cout.precision(8);
-    for (int i = 0; i < clusters.size(); ++i) {
+    for (unsigned i = 0; i < clusters.size(); ++i) {
       const set<Track*>& cluster = *clusters[i];
       cout << "set terminal pngcairo size 2000,2000" << endl;
+      cout << "set xrange [-122.12:-121.80]" << endl;
+      cout << "set yrange [37.18:37.50]" << endl;
       cout << "set output \"cluster_" << i << ".png\"" << endl;
 
       bool first_track = true;

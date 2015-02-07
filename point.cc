@@ -4,16 +4,14 @@
 
 using namespace std;
 
-const double pi = 3.14159265358979323846;
-const double kRadiusOfEarthInMeters = 6371000;
+constexpr double pi = 3.14159265358979323846;
+constexpr double kRadiusOfEarthInMeters = 6371000;
 
-static double deg2rad(double deg) {
+namespace {
+constexpr double deg2rad(double deg) {
   return (deg * pi / 180);
 }
-
-static double rad2deg(double rad) {
-  return (rad * 180 / pi);
-}
+}  // unnamed namespace
 
 Point::Point()
     : lat(0), lon(0), elevation(0), length(0), timestamp(0),

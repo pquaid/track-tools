@@ -28,16 +28,16 @@ public:
     const Point & getStart() const { return (*track)[start]; }
     const Point & getEnd() const { return (*track)[end]; }
 
-    int getStartIndex() const { return start; }
-    int getEndIndex() const { return end; }
+    unsigned getStartIndex() const { return start; }
+    unsigned getEndIndex() const { return end; }
 
-    void SetStart(int s) { start = s; }
-    void SetEnd(int e) { end = e; }
+    void SetStart(unsigned s) { start = s; }
+    void SetEnd(unsigned e) { end = e; }
 
   private:
     const Track* track;
-    int start;
-    int end;
+    unsigned start;
+    unsigned end;
   };
 
   Track() {}
@@ -50,10 +50,10 @@ public:
   const Point& last() const;
 
   // Trim the track to 'samples' points
-  void ShrinkBySample(int samples);
+  void ShrinkBySample(unsigned samples);
 
   // Shrink the track by averaging points down to the desired size
-  void ShrinkByAverage(int points);
+  void ShrinkByAverage(unsigned points);
 
   // Remove points within the given rectangle
   void Mask(double minLon, double maxLon,

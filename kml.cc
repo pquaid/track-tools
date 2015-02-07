@@ -16,8 +16,10 @@
 using namespace std;
 using namespace rapidxml;
 
+namespace {
+
 // Parse a single "longitude latitude elevation" triplet
-static void parseCoord(const string& coord, const time_t ts, Track& track) {
+void parseCoord(const string& coord, const time_t ts, Track& track) {
   istringstream c(coord);
   Point p;
 
@@ -35,9 +37,8 @@ static void parseCoord(const string& coord, const time_t ts, Track& track) {
 }
 
 // Inefficient parsing of a series of long,lat,elevation triplets
-static void parseCoords(const string& coordString,
-                        const time_t timestamp,
-                        Track& track) {
+void parseCoords(const string& coordString, const time_t timestamp,
+                 Track& track) {
   istringstream coords(coordString);
 
   while (coords.good() && !coords.eof()) {
@@ -45,7 +46,7 @@ static void parseCoords(const string& coordString,
     coords >> coord;
     if (coord.empty()) break;
 
-    for (int i = 0; i < coord.size(); i++) {
+    for (unsigned i = 0; i < coord.size(); i++) {
       if (coord[i] == ',') coord[i] = ' ';
     }
 
@@ -55,7 +56,7 @@ static void parseCoords(const string& coordString,
 
 // Surely there's a strptime format suited for this, including the
 // fractional seconds? I didn't see one, hence the following.
-static time_t parseTimestamp(const char* timestamp) {
+time_t parseTimestamp(const char* timestamp) {
   struct tm time;
   time.tm_wday = 0;
   time.tm_yday = 0;
@@ -78,7 +79,7 @@ static time_t parseTimestamp(const char* timestamp) {
   return mktime(&time);
 }
 
-static void processDoc(Document& doc, Track& track) {
+void processDoc(Document& doc, Track& track) {
   xml_node<>* kml = doc.getTop().first_node("kml");
   if (kml == nullptr) {
     throw KMLError("No <kml> element");
@@ -136,28 +137,18 @@ static void processDoc(Document& doc, Track& track) {
   }
 }
 
-void KML::read(const string& filename, Track& track) {
-  Document doc;
-  doc.read(filename);
-  processDoc(doc, track);
-}
-
-void KML::read(istream& in, Track& track) {
-  Document doc;
-  doc.read(in);
-  processDoc(doc, track);
-}
-
-static void writePoint(ostream& out, const Point& point) {
+void writePoint(ostream& out, const Point& point) {
   out.precision(12);
   out << point.lon << "," << point.lat << ",";
   out.precision(6);
   out << point.elevation << endl;
 }
 
-static void writeSegment(ostream& out, const Track& track,
-			 int start, int end, const string& style) {
+void WriteSegment(ostream& out, const Track& track, int start, int end,
+                  const string& style, const string& name, const string& desc) {
   out << "<Placemark>" << endl
+      << "<name>" << name << "</name>" << endl
+      << "<description>" << desc << "</description>" << endl
       << "<styleUrl>" << style << "</styleUrl>" << endl
       << "<LineString>" << endl
       << "<extrude>false</extrude>" << endl
@@ -170,6 +161,32 @@ static void writeSegment(ostream& out, const Track& track,
   }
 
   out << "</coordinates></LineString></Placemark>" << endl;
+}
+
+void WriteFlat(ostream& out, const Track& track, unsigned start, unsigned end) {
+  WriteSegment(out, track, start, end, "#FlatStyle", "", "");
+}
+
+void WriteClimb(ostream& out, const Track& track, const Track::Climb& climb) {
+  char desc[100];
+  snprintf(desc, sizeof(desc), "%0.1lf%% average grade", climb.getGrade());
+  WriteSegment(out, track, climb.getStartIndex(), climb.getEndIndex(),
+               "#ClimbStyle", "Climb", string(desc));
+}
+
+}  // unnamed namespace
+
+
+void KML::read(const string& filename, Track& track) {
+  Document doc;
+  doc.read(filename);
+  processDoc(doc, track);
+}
+
+void KML::read(istream& in, Track& track) {
+  Document doc;
+  doc.read(in);
+  processDoc(doc, track);
 }
 
 void KML::write(ostream& out, const Track& track, Options options) {
@@ -194,25 +211,18 @@ void KML::write(ostream& out, const Track& track, Options options) {
 <LineStyle><color>ff0000bb</color><width>2</width></LineStyle></Style>
 )";
 
-  /*
-  // TODO: To activate this, I need to ensure that Track::sample() properly
-  // adjusts climbs and peaks, which refer to points by index.
   std::vector<Track::Climb> climbs = track.getClimbs();
-  int last_point = 0;
+  unsigned last_point = 0;
   for (const Track::Climb& climb : climbs) {
     if (climb.getStartIndex() > last_point) {
-      writeSegment(out, track, last_point, climb.getStartIndex(),
-		   "#FlatStyle");
+      WriteFlat(out, track, last_point, climb.getStartIndex());
     }
-    writeSegment(out, track, climb.getStartIndex(), climb.getEndIndex(),
-		 "#ClimbStyle");
+    WriteClimb(out, track, climb);
     last_point = climb.getEndIndex();
   }
   if (last_point <= (track.size() - 1)) {
-    writeSegment(out, track, last_point, track.size() - 1, "#FlatStyle");
+    WriteFlat(out, track, last_point, track.size() - 1);
   }
-  */
-  writeSegment(out, track, 0, track.size() - 1, "#FlatStyle");
 
   if (options.startAndEnd && !track.empty()) {
     out << R"(<Placemark><name>Start</name>

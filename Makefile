@@ -12,7 +12,7 @@ TSTBIN := $(TSTSRC:.cc=)
 LIB    := libtrack.a
 BIN    := track sameroute
 
-CXXFLAGS := -g -O2 -fPIC -std=c++11
+CXXFLAGS := -g -O2 -fPIC -std=c++11 -Wall
 
 LDFLAGS += -L. -ltrack -lfit -lgd
 

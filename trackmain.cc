@@ -49,6 +49,8 @@ void usage() {
        << "             -u width,height (PNG image dimensions)" << endl
        << "             -v (verbose; default)" << endl
        << "             -w <double> (width of KML line)" << endl
+       << "             -y (remove burrs; default true)" << endl
+       << "             -z (indicate days in PNG output; default false)" << endl
        << endl
        << "The -i parameter is optional if the filename ends with" << endl
        << "one of: .gpx, .kml, .fit or .txt" << endl;
@@ -65,6 +67,7 @@ static bool doDifficult  = true;
 static int  downsample   = 0;
 static bool quiet        = false;
 static bool metric       = false;
+static bool show_days    = false;
 static int  average      = 0;
 static string jsonCallback;
 static bool remove_burrs  = true;
@@ -155,7 +158,7 @@ static void calculateClimbs(Track& track) {
   if (quiet) return;
 
   const vector<Track::Climb>& climbs(track.getClimbs());
-  for (int i = 0; i < climbs.size(); ++i) {
+  for (unsigned i = 0; i < climbs.size(); ++i) {
     const Track::Climb& climb = climbs[i];
     cerr << "Climb " << i + 1 << ". From "
          << distance(climb.getStart().length) << " to "
@@ -199,7 +202,7 @@ static void calculateDifficult(const Track& track) {
 }
 
 static void processMask(string arg) {
-  for (int i = 0; i < arg.size(); i++) {
+  for (unsigned i = 0; i < arg.size(); i++) {
     if (arg[i] == ',') arg[i] = ' ';
   }
 
@@ -226,7 +229,8 @@ static void processMask(string arg) {
 
 static void processCommandLine(int argc, char * argv[]) {
   while (true) {
-    const int opt = getopt(argc, argv, "a:b:cdef:h:i:j:k:l:mn:o:pqrs:t:u:vw:y");
+    const int opt = getopt(argc, argv,
+                           "a:b:cdef:h:i:j:k:l:mn:o:pqrs:t:u:vw:yz");
     if (opt == -1) break;
 
     switch (opt) {
@@ -364,6 +368,10 @@ static void processCommandLine(int argc, char * argv[]) {
         remove_burrs = !remove_burrs;
         break;
 
+      case 'z':
+        show_days = !show_days;
+        break;
+
       default:
         throw Exception("Unknown option");
     }
@@ -421,7 +429,7 @@ int main(int argc, char * argv[]) {
 
     // Do some calculations
     track.calculateSegmentGrade(100);
-    double climb = track.calculateClimb(10);
+    track.calculateClimb(10);
     track.calculateVelocity(10);
 
     if (!quiet) report(track);
@@ -454,6 +462,7 @@ int main(int argc, char * argv[]) {
       opt.metric = metric;
       opt.climbs = doClimbs;
       opt.difficult = doDifficult;
+      opt.days = show_days;
       opt.minimum_elevation = min_elevation;
       opt.maximum_elevation = max_elevation;
       if (image_width > 0) opt.width = image_width;

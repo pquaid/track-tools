@@ -146,7 +146,7 @@ void GPX::write(ostream& out, const Track& track) {
     out << "<name>" << track.getName() << "</name>" << endl;
   }
   out << "<trkseg>" << endl;
-  for (int i = 0; i < track.size(); i++) {
+  for (unsigned i = 0; i < track.size(); i++) {
     out.precision(12);
     out << "<trkpt lon=\"" << track[i].lon << "\" lat=\""
         << track[i].lat << "\">" << endl;
