@@ -7,16 +7,29 @@
 <script type="text/javascript" src="display-track.js"></script>
 
 <!-- Style 1: JSON -->
-<canvas id="canvas-json" width="600" height="200"></canvas>
+<h1>JSON</h1>
+<h2>metric</h2>
+<p style="border-left: 10px">
+<canvas id="canvas-json-metric" width="600" height="200"></canvas>
 <script>
-  loadTrackDataJSON('canvas-json', "trackdata.json", true);
+  loadTrackDataJSON('canvas-json-metric', "trackdata.json", true);
 </script>
-
+</p>
+<!-- Also JSON, but imperial -->
+<h2>imperial</h2>
+Also padded on the left, to verify mouse event mapping.<p>
+<span style="padding-left: 50px">
+<canvas id="canvas-json-imperial" width="600" height="200"></canvas>
+<script>
+  loadTrackDataJSON('canvas-json-imperial', "trackdata.json", false);
+</script>
+</span>
 <!-- Style 2: JSON with a callback -->
 <!--
   You can load the script with the tag, as shown, or use the
   loadTrackDataJSON() method as above
 -->
+<h1>JSON with callback</h1>
 <canvas id="canvas-json-callback" width="600" height="200"></canvas>
 <script>
 function trackDataCallback(track) {
@@ -25,10 +38,14 @@ function trackDataCallback(track) {
 </script>
 <script type="text/javascript" src="trackdata-w-callback.json"></script>
 
-<!-- Style 3: GPX. This will not show climbs or the most difficult KM -->
+<!-- Style 3: GPX. -->
+<h1>GPX</h1>
+The GPX rendering does not show climbs or the most difficult KM.<p>
 <canvas id="canvas-gpx" width="600" height="200"></canvas>
 <script>
-  loadTrackDataGPX('canvas-gpx', "trackdata.gpx", false);
+  // Note the mimetype has to be XML-related, or the brower won't parse
+  // the XML. In this case I'm making it easy by using an "xml" suffix.
+  loadTrackDataGPX('canvas-gpx', "trackdata.xml", false);
 </script>
 </body>
 </html>

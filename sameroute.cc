@@ -29,12 +29,15 @@ at all.
 
 using namespace std;
 
+namespace {
+
 // Returns the ratio (0 .. 1.0) of points in 'left' that are close to
 // points in 'right'.
-static double trackDistance(const Track& left, const Track& right,
-                            const double close_enough,
-                            const double percentile) {
-  // We're not really going to count
+double trackDistance(const Track& left, const Track& right,
+                     const double close_enough,
+                     const double percentile) {
+  // The number of points in 'left' over/under 'close_enough' meters from
+  // their closest counterpart in 'right'.
   int over = 0;
   int under = 0;
 
@@ -46,16 +49,14 @@ static double trackDistance(const Track& left, const Track& right,
   for (const Point& left_point : left) {
     double m = 1000000000;
 
-    double latmin = left_point.lat - 0.01;
-    double latmax = left_point.lat + 0.01;
-    double lonmin = left_point.lon - 0.01;
-    double lonmax = left_point.lon + 0.01;
+    const double latmin = left_point.lat - 0.01;
+    const double latmax = left_point.lat + 0.01;
+    const double lonmin = left_point.lon - 0.01;
+    const double lonmax = left_point.lon + 0.01;
 
     for (const Point& right_point : right) {
-      if ((right_point.lat < latmin) ||
-          (right_point.lat > latmax) ||
-          (right_point.lon < lonmin) ||
-          (right_point.lon > lonmax)) {
+      if ((right_point.lat < latmin) || (right_point.lat > latmax) ||
+          (right_point.lon < lonmin) || (right_point.lon > lonmax)) {
         continue;
       }
 
@@ -92,7 +93,7 @@ struct Result {
 };
 
 
-static Result compare(const Track& left, const Track& right) {
+Result compare(const Track& left, const Track& right) {
   Result result;
   const double target = 0.96;
   result.left_ratio = trackDistance(left, right, 25.0, 0.90);
@@ -111,6 +112,8 @@ static Result compare(const Track& left, const Track& right) {
   return result;
 }
 
+}  // namespace
+
 int main(int argc, char* argv[]) {
   try {
     // A track, and the cluster to which the track belongs, if we know it.
@@ -122,7 +125,7 @@ int main(int argc, char* argv[]) {
 
     for (int i = 1; i < argc; ++i) {
       tracks.push_back(TrackInfo());
-      Track* t = &tracks.rbegin()->track;
+      Track* t = &tracks.back().track;
 
       Parse::read(argv[i], *t);
 
