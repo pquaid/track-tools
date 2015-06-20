@@ -11,15 +11,19 @@ above), unzip it, then apply the patch I've provided here. Or, once
 you've downloaded it:
 
 1. Download the SDK, which I'm assuming will end up
-   in ~Downloads/FitSDK2_00.zip
+   in ~Downloads/FitSDKRelease_15.10.zip
 2. mkdir -p ~/src/libfit
 3. cd ~/src/libfit
-4. unzip ~/Downloads/FitSDK2_00.zip
+4. unzip ~/Downloads/FitSDKRelease15.10.zip
 5. patch -p1 < ~/track-tools/libfit.patch (or wherever you put it)
 6. cd cpp
 7. make
 8. sudo make install
 
+If you use Bazel, you can put libfit in your WORKSPACE, in which case
+building these track tools will automatically build the library.
+
 The patch adds a few missing includes of 'string.h' to pick up memcpy,
 and removes a gratuitous seekg() of the stream on input, which was
-forcing the input to be a file. It also adds the makefile.
+forcing the input to be a file. It also adds the makefile and BUILD
+file.

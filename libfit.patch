@@ -1,67 +1,67 @@
-diff -ruN -x .svn fit/cpp/fit_buffer_encode.cpp libfit/cpp/fit_buffer_encode.cpp
---- fit/cpp/fit_buffer_encode.cpp	2012-02-01 20:24:36.000000000 -0800
-+++ libfit/cpp/fit_buffer_encode.cpp	2012-04-18 11:16:57.292653519 -0700
-@@ -13,7 +13,7 @@
- // Profile Version = 2.0Release
- // Tag = $Name: AKW2_000 $
+diff -ruN libfit-15/cpp/BUILD libfit/cpp/BUILD
+--- libfit-15/cpp/BUILD	1969-12-31 16:00:00.000000000 -0800
++++ libfit/cpp/BUILD	2015-06-20 12:35:49.999708033 -0700
+@@ -0,0 +1,9 @@
++cc_library(
++  name = "libfit",
++  visibility = ["//visibility:public"],
++  srcs = glob(["fit*.cpp"]),
++  hdrs = glob(["fit*.cpp"]),
++  defines = [
++    "FIT_USE_STDINT_H"
++  ],
++)
+diff -ruN libfit-15/cpp/fit_buffer_encode.cpp libfit/cpp/fit_buffer_encode.cpp
+--- libfit-15/cpp/fit_buffer_encode.cpp	2015-06-02 18:11:20.000000000 -0700
++++ libfit/cpp/fit_buffer_encode.cpp	2015-06-20 11:45:32.811842552 -0700
+@@ -15,6 +15,7 @@
  ////////////////////////////////////////////////////////////////////////////////
--
-+#include <string.h>
  
+ 
++#include <string.h>
  #include "fit_buffer_encode.hpp"
  #include "fit_crc.hpp"
-diff -ruN -x .svn fit/cpp/fit_decode.cpp libfit/cpp/fit_decode.cpp
---- fit/cpp/fit_decode.cpp	2012-02-01 20:24:36.000000000 -0800
-+++ libfit/cpp/fit_decode.cpp	2012-04-23 17:08:01.840214737 -0700
+ 
+diff -ruN libfit-15/cpp/fit_decode.cpp libfit/cpp/fit_decode.cpp
+--- libfit-15/cpp/fit_decode.cpp	2015-06-02 18:11:20.000000000 -0700
++++ libfit/cpp/fit_decode.cpp	2015-06-20 12:18:49.735753521 -0700
 @@ -166,7 +166,7 @@
     state = STATE_FILE_HDR;
     lastTimeOffset = 0;
  
--   file.seekg(0, std::ios::beg);
-+   //file.seekg(0, std::ios::beg);
+-   file.seekg(0, file.beg);
++   //file.seekg(0, file.beg);
+    file.clear(); // workaround libc++ issue
  }
  
- Decode::RETURN Decode::ReadByte(FIT_UINT8 data)
-@@ -211,7 +211,7 @@
-                if ((data & FIT_PROTOCOL_VERSION_MAJOR_MASK) > (FIT_PROTOCOL_VERSION_MAJOR << FIT_PROTOCOL_VERSION_MAJOR_SHIFT))
-                {
-                   std::ostringstream message;
--                  message << "FIT decode error: Protocol version " << (data & FIT_PROTOCOL_VERSION_MAJOR_MASK) << FIT_PROTOCOL_VERSION_MAJOR_SHIFT << "." << (data & FIT_PROTOCOL_VERSION_MINOR_MASK) << " not supported.  Must be " << FIT_PROTOCOL_VERSION_MAJOR + ".15 or earlier.";
-+                  message << "FIT decode error: Protocol version " << ((data & FIT_PROTOCOL_VERSION_MAJOR_MASK) >> FIT_PROTOCOL_VERSION_MAJOR_SHIFT) << "." << (data & FIT_PROTOCOL_VERSION_MINOR_MASK) << " not supported.  Must be " << FIT_PROTOCOL_VERSION_MAJOR << ".15 or earlier.";
-                   throw RuntimeException(message.str());
-                   return RETURN_ERROR;
-                }
-diff -ruN -x .svn fit/cpp/fit_encode.cpp libfit/cpp/fit_encode.cpp
---- fit/cpp/fit_encode.cpp	2012-02-01 20:24:36.000000000 -0800
-+++ libfit/cpp/fit_encode.cpp	2012-04-18 11:17:15.897152678 -0700
-@@ -13,7 +13,7 @@
- // Profile Version = 2.0Release
- // Tag = $Name: AKW2_000 $
- ////////////////////////////////////////////////////////////////////////////////
--
-+#include <string.h>
+diff -ruN libfit-15/cpp/fit_encode.cpp libfit/cpp/fit_encode.cpp
+--- libfit-15/cpp/fit_encode.cpp	2015-06-02 18:11:20.000000000 -0700
++++ libfit/cpp/fit_encode.cpp	2015-06-20 11:45:09.603843587 -0700
+@@ -16,6 +16,7 @@
+ 
  
  #include <iostream>
- #include "fit_encode.hpp"
-diff -ruN -x .svn fit/cpp/fit_field.cpp libfit/cpp/fit_field.cpp
---- fit/cpp/fit_field.cpp	2012-02-01 20:24:36.000000000 -0800
-+++ libfit/cpp/fit_field.cpp	2012-04-18 11:17:36.988654400 -0700
-@@ -13,7 +13,7 @@
- // Profile Version = 2.0Release
- // Tag = $Name: AKW2_000 $
- ////////////////////////////////////////////////////////////////////////////////
--
 +#include <string.h>
+ #include "fit_encode.hpp"
+ #include "fit_crc.hpp"
+ 
+diff -ruN libfit-15/cpp/fit_field.cpp libfit/cpp/fit_field.cpp
+--- libfit-15/cpp/fit_field.cpp	2015-06-02 18:11:20.000000000 -0700
++++ libfit/cpp/fit_field.cpp	2015-06-20 11:44:08.723846301 -0700
+@@ -16,6 +16,7 @@
+ 
  
  #include <sstream>
++#include <string.h>
  #include "fit_field.hpp"
-diff -ruN -x .svn fit/cpp/Makefile libfit/cpp/Makefile
---- fit/cpp/Makefile	1969-12-31 16:00:00.000000000 -0800
-+++ libfit/cpp/Makefile	2012-04-24 15:20:18.160216417 -0700
-@@ -0,0 +1,24 @@
+ #include "fit_mesg.hpp"
+ #include "fit_unicode.hpp"
+diff -ruN libfit-15/cpp/Makefile libfit/cpp/Makefile
+--- libfit-15/cpp/Makefile	1969-12-31 16:00:00.000000000 -0800
++++ libfit/cpp/Makefile	2015-06-20 12:26:45.935732290 -0700
+@@ -0,0 +1,23 @@
 +
-+SRC := fit_accumulated_field.cpp fit_accumulator.cpp fit_buffered_record_mesg_broadcaster.cpp fit_buffer_encode.cpp fit.cpp fit_crc.cpp fit_decode.cpp fit_encode.cpp fit_factory.cpp fit_field.cpp fit_field_definition.cpp fit_mesg_broadcaster.cpp fit_mesg.cpp fit_mesg_definition.cpp fit_mesg_with_event_broadcaster.cpp fit_profile.cpp fit_unicode.cpp
-+
++SRC := $(wildcard *.cpp)
 +OBJ := $(SRC:.cpp=.o)
 +
 +CXXFLAGS := -DFIT_USE_STDINT_H -fpic

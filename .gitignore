@@ -4,3 +4,6 @@
 libtrack.a
 track
 sameroute
+trackdata.js
+trackdata-w-callback.js
+trackdata.xml

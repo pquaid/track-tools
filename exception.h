@@ -13,10 +13,10 @@ public:
   Exception() {}
   explicit Exception(const std::string& msg) : message(msg) {}
 
-  ~Exception() throw() {}
+  ~Exception() throw() override {}
 
-  const char* what() const throw() { return message.c_str(); }
-  void setMessage(const std::string& msg) { message = msg; }
+  const char* what() const throw() override { return message.c_str(); }
+  void SetMessage(const std::string& msg) { message = msg; }
 
 private:
   std::string message;
@@ -25,11 +25,11 @@ private:
 class SystemException : public Exception {
 public:
   SystemException(int error) {
-    setMessage(strerror(error));
+    SetMessage(strerror(error));
   }
 
   SystemException(int error, const std::string& msg) {
-    setMessage(msg + ": " + strerror(error));
+    SetMessage(msg + ": " + strerror(error));
   }
 
   static void check(int rc, const char* msg) {
@@ -56,7 +56,7 @@ public:
       snprintf(buffer, sizeof(buffer), "%d", lineno);
       msg += buffer;
     }
-    setMessage(msg);
+    SetMessage(msg);
   }
 };
 

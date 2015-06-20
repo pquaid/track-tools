@@ -2,8 +2,10 @@
 
 #include <iosfwd>
 
-#include "libfit/fit_decode.hpp"
-#include "libfit/fit_mesg_broadcaster.hpp"
+// Note: The makefile adds "-I..", which picks up the libfit headers
+// *if* libfit/ is a peer to track-tools/. If it's not, fix the makefile.
+#include "libfit/cpp/fit_decode.hpp"
+#include "libfit/cpp/fit_mesg_broadcaster.hpp"
 
 #include <stdint.h>
 
